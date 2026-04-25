@@ -1,0 +1,74 @@
+package clob
+
+import (
+	"context"
+	"encoding/hex"
+	"math/big"
+	"testing"
+
+	"github.com/bububa/polymarket-client/relayer"
+	"github.com/ethereum/go-ethereum/common"
+)
+
+func TestBinaryPartition(t *testing.T) {
+	partition := BinaryPartition()
+	if len(partition) != 2 || partition[0].Cmp(big.NewInt(1)) != 0 || partition[1].Cmp(big.NewInt(2)) != 0 {
+		t.Fatalf("partition = %v", partition)
+	}
+}
+
+func TestBuildSplitPositionTx(t *testing.T) {
+	contracts, err := Contracts(PolygonChainID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	client := NewClient("")
+	tx, err := client.BuildSplitPositionTx(SplitBinary(
+		contracts.Collateral,
+		common.HexToHash("0x1234"),
+		big.NewInt(1_000_000),
+	))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tx.To != contracts.ConditionalTokens {
+		t.Fatalf("to = %s, want %s", tx.To, contracts.ConditionalTokens)
+	}
+	if len(tx.Data) < 4 {
+		t.Fatalf("calldata too short: %d", len(tx.Data))
+	}
+	selector := hex.EncodeToString(tx.Data[:4])
+	if selector != "72ce4275" {
+		t.Fatalf("selector = %s", selector)
+	}
+}
+
+type captureRelayer struct {
+	req relayer.SubmitTransactionRequest
+}
+
+func (r *captureRelayer) SubmitTransaction(_ context.Context, req relayer.SubmitTransactionRequest) (*relayer.SubmitTransactionResponse, error) {
+	r.req = req
+	return &relayer.SubmitTransactionResponse{TransactionID: "tx-1", State: "STATE_NEW"}, nil
+}
+
+func TestSubmitCTFRelayerTransaction(t *testing.T) {
+	capture := &captureRelayer{}
+	client := NewClient("", WithRelayerSubmitter(capture))
+	resp, err := client.SubmitCTFRelayerTransaction(context.Background(), &CTFTransaction{
+		To:   common.HexToAddress("0x0000000000000000000000000000000000000001"),
+		Data: []byte{0x12, 0x34},
+	}, RelayerCTFRequest{
+		From:        "0xfrom",
+		ProxyWallet: "0xproxy",
+		Nonce:       "7",
+		Signature:   "0xsig",
+		Type:        "SAFE",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.TransactionID != "tx-1" || capture.req.To != "0x0000000000000000000000000000000000000001" || capture.req.Data != "0x1234" {
+		t.Fatalf("response=%+v request=%+v", resp, capture.req)
+	}
+}

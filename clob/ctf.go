@@ -1,0 +1,250 @@
+package clob
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"math/big"
+	"time"
+
+	"github.com/bububa/polymarket-client/relayer"
+	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/ethclient"
+)
+
+// BuildSplitPositionTx builds the destination and calldata for splitPosition.
+func (c *Client) BuildSplitPositionTx(req SplitPositionRequest) (*CTFTransaction, error) {
+	data, err := ctfABI.Pack("splitPosition", req.CollateralToken, req.ParentCollectionID, req.ConditionID, req.Partition, req.Amount)
+	if err != nil {
+		return nil, fmt.Errorf("ctf: pack splitPosition: %w", err)
+	}
+	to, err := c.contractAddress(func(cc ContractConfig) common.Address { return cc.ConditionalTokens })
+	if err != nil {
+		return nil, err
+	}
+	return &CTFTransaction{To: to, Data: data}, nil
+}
+
+// BuildMergePositionsTx builds the destination and calldata for mergePositions.
+func (c *Client) BuildMergePositionsTx(req MergePositionsRequest) (*CTFTransaction, error) {
+	data, err := ctfABI.Pack("mergePositions", req.CollateralToken, req.ParentCollectionID, req.ConditionID, req.Partition, req.Amount)
+	if err != nil {
+		return nil, fmt.Errorf("ctf: pack mergePositions: %w", err)
+	}
+	to, err := c.contractAddress(func(cc ContractConfig) common.Address { return cc.ConditionalTokens })
+	if err != nil {
+		return nil, err
+	}
+	return &CTFTransaction{To: to, Data: data}, nil
+}
+
+// BuildRedeemPositionsTx builds the destination and calldata for redeemPositions.
+func (c *Client) BuildRedeemPositionsTx(req RedeemPositionsRequest) (*CTFTransaction, error) {
+	data, err := ctfABI.Pack("redeemPositions", req.CollateralToken, req.ParentCollectionID, req.ConditionID, req.IndexSets)
+	if err != nil {
+		return nil, fmt.Errorf("ctf: pack redeemPositions: %w", err)
+	}
+	to, err := c.contractAddress(func(cc ContractConfig) common.Address { return cc.ConditionalTokens })
+	if err != nil {
+		return nil, err
+	}
+	return &CTFTransaction{To: to, Data: data}, nil
+}
+
+// BuildRedeemNegRiskTx builds the destination and calldata for neg-risk adapter redemption.
+func (c *Client) BuildRedeemNegRiskTx(req RedeemNegRiskRequest) (*CTFTransaction, error) {
+	data, err := negRiskABI.Pack("redeemPositions", req.ConditionID, req.Amounts)
+	if err != nil {
+		return nil, fmt.Errorf("ctf: pack neg-risk redeemPositions: %w", err)
+	}
+	to, err := c.contractAddress(func(cc ContractConfig) common.Address { return cc.NegRiskAdapter })
+	if err != nil {
+		return nil, err
+	}
+	return &CTFTransaction{To: to, Data: data}, nil
+}
+
+// SplitPosition submits a splitPosition transaction and waits for its receipt.
+func (c *Client) SplitPosition(ctx context.Context, req SplitPositionRequest) (*TxReceipt, error) {
+	tx, err := c.BuildSplitPositionTx(req)
+	if err != nil {
+		return nil, err
+	}
+	return c.sendCTFTxAndWait(ctx, tx)
+}
+
+// MergePositions submits a mergePositions transaction and waits for its receipt.
+func (c *Client) MergePositions(ctx context.Context, req MergePositionsRequest) (*TxReceipt, error) {
+	tx, err := c.BuildMergePositionsTx(req)
+	if err != nil {
+		return nil, err
+	}
+	return c.sendCTFTxAndWait(ctx, tx)
+}
+
+// RedeemPositions submits a redeemPositions transaction and waits for its receipt.
+func (c *Client) RedeemPositions(ctx context.Context, req RedeemPositionsRequest) (*TxReceipt, error) {
+	tx, err := c.BuildRedeemPositionsTx(req)
+	if err != nil {
+		return nil, err
+	}
+	return c.sendCTFTxAndWait(ctx, tx)
+}
+
+// RedeemNegRisk submits a neg-risk adapter redemption transaction and waits for its receipt.
+func (c *Client) RedeemNegRisk(ctx context.Context, req RedeemNegRiskRequest) (*TxReceipt, error) {
+	tx, err := c.BuildRedeemNegRiskTx(req)
+	if err != nil {
+		return nil, err
+	}
+	return c.sendCTFTxAndWait(ctx, tx)
+}
+
+// SubmitCTFRelayerTransaction submits built CTF calldata through the configured relayer.
+func (c *Client) SubmitCTFRelayerTransaction(ctx context.Context, tx *CTFTransaction, req RelayerCTFRequest) (*relayer.SubmitTransactionResponse, error) {
+	if tx == nil {
+		return nil, errors.New("polymarket: nil CTF transaction")
+	}
+	return c.SubmitRelayerTransaction(ctx, relayer.SubmitTransactionRequest{
+		From:            req.From,
+		To:              tx.To.Hex(),
+		ProxyWallet:     req.ProxyWallet,
+		Data:            hexutil.Encode(tx.Data),
+		Nonce:           req.Nonce,
+		Signature:       req.Signature,
+		SignatureParams: req.SignatureParams,
+		Type:            req.Type,
+		Metadata:        req.Metadata,
+		Value:           req.Value,
+	})
+}
+
+// ConditionID computes the CTF condition ID for oracle, question ID, and slot count.
+func ConditionID(oracle common.Address, questionID common.Hash, outcomeSlotCount uint) common.Hash {
+	buf := make([]byte, 0, 84)
+	buf = append(buf, oracle.Bytes()...)
+	buf = append(buf, questionID.Bytes()...)
+	n := new(big.Int).SetUint64(uint64(outcomeSlotCount))
+	slot := make([]byte, 32)
+	n.FillBytes(slot)
+	buf = append(buf, slot...)
+	return crypto.Keccak256Hash(buf)
+}
+
+// CollectionID computes the CTF collection ID for a condition and index set.
+func CollectionID(parentCollectionID common.Hash, conditionID common.Hash, indexSet *big.Int) common.Hash {
+	inner := make([]byte, 64)
+	copy(inner[:32], conditionID.Bytes())
+	indexSet.FillBytes(inner[32:64])
+	h := crypto.Keccak256Hash(inner)
+
+	var result [32]byte
+	parentBytes := parentCollectionID.Bytes()
+	hashBytes := h.Bytes()
+	for i := range result {
+		result[i] = parentBytes[i] ^ hashBytes[i]
+	}
+	return common.BytesToHash(result[:])
+}
+
+// PositionID computes the CTF ERC1155 position ID for a collateral token and collection.
+func PositionID(collateralToken common.Address, collectionID common.Hash) *big.Int {
+	buf := make([]byte, 0, 52)
+	buf = append(buf, collateralToken.Bytes()...)
+	buf = append(buf, collectionID.Bytes()...)
+	h := crypto.Keccak256Hash(buf)
+	return new(big.Int).SetBytes(h.Bytes())
+}
+
+func (c *Client) contractAddress(field func(ContractConfig) common.Address) (common.Address, error) {
+	config, err := Contracts(c.auth.ChainID)
+	if err != nil {
+		return common.Address{}, err
+	}
+	return field(config), nil
+}
+
+func (c *Client) sendCTFTxAndWait(ctx context.Context, txRequest *CTFTransaction) (*TxReceipt, error) {
+	if c.auth.Signer == nil {
+		return nil, errors.New("ctf: signer is required")
+	}
+	if c.rpcURL == "" {
+		return nil, errors.New("ctf: rpc url is required")
+	}
+	ec, err := ethclient.DialContext(ctx, c.rpcURL)
+	if err != nil {
+		return nil, fmt.Errorf("ctf: dial rpc: %w", err)
+	}
+	defer ec.Close()
+
+	key := c.auth.Signer.PrivateKey()
+	from := crypto.PubkeyToAddress(key.PublicKey)
+	nonce, err := ec.PendingNonceAt(ctx, from)
+	if err != nil {
+		return nil, fmt.Errorf("ctf: get nonce: %w", err)
+	}
+
+	chainID := big.NewInt(c.auth.ChainID)
+	gasTipCap, err := ec.SuggestGasTipCap(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("ctf: suggest gas tip cap: %w", err)
+	}
+	head, err := ec.HeaderByNumber(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("ctf: get latest header: %w", err)
+	}
+	gasFeeCap := new(big.Int).Add(gasTipCap, new(big.Int).Mul(head.BaseFee, big.NewInt(2)))
+	msg := ethereum.CallMsg{From: from, To: &txRequest.To, Data: txRequest.Data, GasFeeCap: gasFeeCap, GasTipCap: gasTipCap}
+	gasLimit, err := ec.EstimateGas(ctx, msg)
+	if err != nil {
+		return nil, fmt.Errorf("ctf: estimate gas: %w", err)
+	}
+	tx := types.NewTx(&types.DynamicFeeTx{
+		ChainID:   chainID,
+		Nonce:     nonce,
+		GasFeeCap: gasFeeCap,
+		GasTipCap: gasTipCap,
+		Gas:       gasLimit,
+		To:        &txRequest.To,
+		Value:     big.NewInt(0),
+		Data:      txRequest.Data,
+	})
+	signed, err := types.SignTx(tx, types.LatestSignerForChainID(chainID), key)
+	if err != nil {
+		return nil, fmt.Errorf("ctf: sign tx: %w", err)
+	}
+	if err := ec.SendTransaction(ctx, signed); err != nil {
+		return nil, fmt.Errorf("ctf: send tx: %w", err)
+	}
+	receipt, err := waitForReceipt(ctx, ec, signed.Hash())
+	if err != nil {
+		return nil, err
+	}
+	if receipt.Status == types.ReceiptStatusFailed {
+		return nil, fmt.Errorf("ctf: transaction %s reverted", signed.Hash().Hex())
+	}
+	return &TxReceipt{Hash: receipt.TxHash, BlockNumber: receipt.BlockNumber.Uint64()}, nil
+}
+
+func waitForReceipt(ctx context.Context, ec *ethclient.Client, txHash common.Hash) (*types.Receipt, error) {
+	ticker := time.NewTicker(250 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return nil, fmt.Errorf("ctf: waiting for receipt %s: %w", txHash.Hex(), ctx.Err())
+		case <-ticker.C:
+			receipt, err := ec.TransactionReceipt(ctx, txHash)
+			if err == nil {
+				return receipt, nil
+			}
+			if !errors.Is(err, ethereum.NotFound) {
+				return nil, fmt.Errorf("ctf: get receipt %s: %w", txHash.Hex(), err)
+			}
+		}
+	}
+}

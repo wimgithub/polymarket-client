@@ -1,0 +1,29 @@
+// Package gamma provides a read-only client for the Polymarket Gamma market-data API.
+//
+// # Overview
+//
+// The Gamma API exposes market and event metadata, full-text search, tag
+// relationships, sports data, public profiles, and user comments. All endpoints
+// are public (no auth required).
+//
+// # Usage
+//
+//	client := gamma.New(gamma.Config{})  // defaults to gamma-api.polymarket.com
+//
+//	// Search markets, events, profiles
+//	results, _ := client.Search(ctx, "election")
+//
+//	// Get events and markets
+//	events, _ := client.GetEvents(ctx, gamma.EventFilterParams{Active: truePtr})
+//	markets, _ := client.GetMarkets(ctx, gamma.MarketFilterParams{Slug: "..."})
+//
+//	// Tags and related content
+//	tags, _ := client.GetTags(ctx)
+//	related, _ := client.GetRelatedTags(ctx, "tag-id", gamma.RelatedTagParams{})
+//
+//	// Public profiles and comments
+//	profile, _ := client.GetPublicProfile(ctx, "0x...")
+//	comments, _ := client.GetComments(ctx, gamma.CommentFilterParams{})
+//
+// Default host: https://gamma-api.polymarket.com
+package gamma
