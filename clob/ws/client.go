@@ -128,7 +128,7 @@ func (c *Client) connect(ctx context.Context, url string) error {
 		_ = oldConn.CloseNow()
 	}
 
-	if !c.connected.CAS(false, true) {
+	if !c.connected.CompareAndSwap(false, true) {
 		if c.onReconnected != nil {
 			go c.onReconnected()
 		}
