@@ -416,6 +416,8 @@ type PostOrderRequest struct {
 	Owner string `json:"owner"`
 	// OrderType is the execution type (GTC, FOK, GTD).
 	OrderType OrderType `json:"orderType"`
+	// DeferExec defers order execution for later processing.
+	DeferExec bool `json:"deferExec,omitempty"`
 }
 
 // PostOrderResponse is returned after order submission.
