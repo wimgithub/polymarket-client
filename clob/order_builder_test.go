@@ -493,3 +493,20 @@ func TestComputeMarketOrderAmounts_CeilProtectsWorstPrice_SELL(t *testing.T) {
 		t.Errorf("implied price %f below worst price 0.333333", impliedPrice)
 	}
 }
+
+func TestBuildOrder_EmptyTickSizeSkipsTickValidation(t *testing.T) {
+	signer := testKey()
+	client := NewClient("", WithSigner(signer))
+	b := NewOrderBuilder(client)
+
+	// "0.673" is NOT aligned to 0.01 tick, but empty TickSize should skip validation
+	_, err := b.BuildOrder(OrderArgsV2{
+		TokenID: "123456",
+		Price:   "0.673",
+		Size:    "10",
+		Side:    Buy,
+	}, CreateOrderOptions{TickSize: ""})
+	if err != nil {
+		t.Fatalf("expected no error with empty TickSize, got %v", err)
+	}
+}

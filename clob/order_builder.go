@@ -32,7 +32,10 @@ type MarketOrderArgsV2 struct {
 }
 
 type CreateOrderOptions struct {
-	TickSize string // required tick size; price will be validated, not auto-rounded
+	// TickSize is the market's minimum price increment (e.g. "0.01").
+	// If empty, tick alignment validation is skipped.
+	// Use BuildOrderForToken to fetch this automatically from the CLOB API.
+	TickSize string
 	NegRisk  bool
 }
 
@@ -44,6 +47,15 @@ func NewOrderBuilder(client *Client) *OrderBuilder {
 	return &OrderBuilder{client: client}
 }
 
+// BuildOrder constructs and signs a V2 order from human-readable arguments.
+//
+// Validations performed:
+//   - price range (0 < price < 1 for limit orders)
+//   - tickSize alignment (only if opts.TickSize is non-empty)
+//   - BuilderCode and Metadata format (must be valid bytes32 hex or empty)
+//
+// BuildOrder only constructs, validates, and signs orders.
+// It does not check balance, allowance, or reserved open order capacity.
 func (b *OrderBuilder) BuildOrder(args OrderArgsV2, opts CreateOrderOptions) (*SignedOrder, error) {
 	if err := ValidateBytes32Hex("builder", args.BuilderCode); err != nil {
 		return nil, err
@@ -170,11 +182,6 @@ func (b *OrderBuilder) CreateAndPostMarketOrder(ctx context.Context, args Market
 	return out, nil
 }
 
-type OrderBuilderConfig struct {
-	TickSize string
-	NegRisk  bool
-}
-
 type GetMarketOptionsResponse struct {
 	TickSize string
 	NegRisk  bool
@@ -195,54 +202,40 @@ func (b *OrderBuilder) GetMarketOptions(ctx context.Context, tokenID string) (*G
 	}, nil
 }
 
-func (b *OrderBuilder) BuildOrderForToken(ctx context.Context, args OrderArgsV2, builderCode, metadata string) (*SignedOrder, error) {
+func (b *OrderBuilder) BuildOrderForToken(ctx context.Context, args OrderArgsV2) (*SignedOrder, error) {
 	opts, err := b.GetMarketOptions(ctx, args.TokenID)
 	if err != nil {
 		return nil, err
 	}
-	return b.BuildOrder(OrderArgsV2{
-		TokenID:       args.TokenID,
-		Price:         args.Price,
-		Size:          args.Size,
-		Side:          args.Side,
-		Expiration:    args.Expiration,
-		SignatureType: args.SignatureType,
-		BuilderCode:   builderCode,
-		Metadata:      metadata,
-	}, CreateOrderOptions{TickSize: opts.TickSize, NegRisk: opts.NegRisk})
+	return b.BuildOrder(args, CreateOrderOptions{TickSize: opts.TickSize, NegRisk: opts.NegRisk})
 }
 
-func (b *OrderBuilder) CreateAndPostOrderForToken(ctx context.Context, args OrderArgsV2, orderType OrderType, deferExec *bool, builderCode, metadata string) (*PostOrderResponse, error) {
+// BuildMarketOrderForToken fetches tickSize and negRisk for the given TokenID,
+// then builds and signs a market order using args.BuilderCode and args.Metadata.
+func (b *OrderBuilder) BuildMarketOrderForToken(ctx context.Context, args MarketOrderArgsV2) (*SignedOrder, error) {
 	opts, err := b.GetMarketOptions(ctx, args.TokenID)
 	if err != nil {
 		return nil, err
 	}
-	return b.CreateAndPostOrder(ctx, OrderArgsV2{
-		TokenID:       args.TokenID,
-		Price:         args.Price,
-		Size:          args.Size,
-		Side:          args.Side,
-		Expiration:    args.Expiration,
-		SignatureType: args.SignatureType,
-		BuilderCode:   builderCode,
-		Metadata:      metadata,
-	}, CreateOrderOptions{TickSize: opts.TickSize, NegRisk: opts.NegRisk}, orderType, deferExec)
+	return b.BuildMarketOrder(args, CreateOrderOptions{TickSize: opts.TickSize, NegRisk: opts.NegRisk})
 }
 
-func (b *OrderBuilder) CreateAndPostMarketOrderForToken(ctx context.Context, args MarketOrderArgsV2, orderType OrderType, deferExec *bool, builderCode, metadata string) (*PostOrderResponse, error) {
+// CreateAndPostOrderForToken auto-fetches market options, builds, signs, and posts.
+func (b *OrderBuilder) CreateAndPostOrderForToken(ctx context.Context, args OrderArgsV2, orderType OrderType, deferExec *bool) (*PostOrderResponse, error) {
 	opts, err := b.GetMarketOptions(ctx, args.TokenID)
 	if err != nil {
 		return nil, err
 	}
-	return b.CreateAndPostMarketOrder(ctx, MarketOrderArgsV2{
-		TokenID:       args.TokenID,
-		Price:         args.Price,
-		Amount:        args.Amount,
-		Side:          args.Side,
-		SignatureType: args.SignatureType,
-		BuilderCode:   builderCode,
-		Metadata:      metadata,
-	}, CreateOrderOptions{TickSize: opts.TickSize, NegRisk: opts.NegRisk}, orderType, deferExec)
+	return b.CreateAndPostOrder(ctx, args, CreateOrderOptions{TickSize: opts.TickSize, NegRisk: opts.NegRisk}, orderType, deferExec)
+}
+
+// CreateAndPostMarketOrderForToken auto-fetches market options, builds, signs, and posts a market order.
+func (b *OrderBuilder) CreateAndPostMarketOrderForToken(ctx context.Context, args MarketOrderArgsV2, orderType OrderType, deferExec *bool) (*PostOrderResponse, error) {
+	opts, err := b.GetMarketOptions(ctx, args.TokenID)
+	if err != nil {
+		return nil, err
+	}
+	return b.CreateAndPostMarketOrder(ctx, args, CreateOrderOptions{TickSize: opts.TickSize, NegRisk: opts.NegRisk}, orderType, deferExec)
 }
 
 func validateDeferExec(orderType OrderType, deferExec *bool) error {
