@@ -27,7 +27,7 @@ type MarketOrderArgsV2 struct {
 }
 
 type CreateOrderOptions struct {
-	TickSize string // e.g. "0.01"; empty disables rounding
+	TickSize string // required tick size; price will be validated, not auto-rounded
 	NegRisk  bool
 }
 
@@ -48,17 +48,11 @@ func (b *OrderBuilder) BuildOrder(args OrderArgsV2, opts CreateOrderOptions) (*S
 	if err != nil {
 		return nil, err
 	}
-
-	price := args.Price
-	if opts.TickSize != "" {
-		rounded, err := roundToTickSize(price, opts.TickSize)
-		if err != nil {
-			return nil, err
-		}
-		price = rounded
+	if err := validatePriceTicks(args.Price, opts.TickSize); err != nil {
+		return nil, err
 	}
 
-	maker, taker, err := computeOrderAmounts(price, args.Size, args.Side)
+	maker, taker, err := computeOrderAmounts(args.Price, args.Size, args.Side)
 	if err != nil {
 		return nil, err
 	}
@@ -93,17 +87,11 @@ func (b *OrderBuilder) BuildMarketOrder(args MarketOrderArgsV2, opts CreateOrder
 	if err != nil {
 		return nil, err
 	}
-
-	price := args.Price
-	if opts.TickSize != "" {
-		rounded, err := roundToTickSize(price, opts.TickSize)
-		if err != nil {
-			return nil, err
-		}
-		price = rounded
+	if err := validatePriceTicks(args.Price, opts.TickSize); err != nil {
+		return nil, err
 	}
 
-	maker, taker, err := computeMarketOrderAmounts(price, args.Amount, args.Side)
+	maker, taker, err := computeMarketOrderAmounts(args.Price, args.Amount, args.Side)
 	if err != nil {
 		return nil, err
 	}
@@ -125,7 +113,7 @@ func (b *OrderBuilder) BuildMarketOrder(args MarketOrderArgsV2, opts CreateOrder
 	return order, nil
 }
 
-func (b *OrderBuilder) CreateAndPostOrder(ctx context.Context, args OrderArgsV2, opts CreateOrderOptions, orderType OrderType, deferExec bool) (*PostOrderResponse, error) {
+func (b *OrderBuilder) CreateAndPostOrder(ctx context.Context, args OrderArgsV2, opts CreateOrderOptions, orderType OrderType, deferExec *bool) (*PostOrderResponse, error) {
 	order, err := b.BuildOrder(args, opts)
 	if err != nil {
 		return nil, err
@@ -143,7 +131,7 @@ func (b *OrderBuilder) CreateAndPostOrder(ctx context.Context, args OrderArgsV2,
 	return out, nil
 }
 
-func (b *OrderBuilder) CreateAndPostMarketOrder(ctx context.Context, args MarketOrderArgsV2, opts CreateOrderOptions, orderType OrderType, deferExec bool) (*PostOrderResponse, error) {
+func (b *OrderBuilder) CreateAndPostMarketOrder(ctx context.Context, args MarketOrderArgsV2, opts CreateOrderOptions, orderType OrderType, deferExec *bool) (*PostOrderResponse, error) {
 	if orderType != FOK && orderType != FAK {
 		return nil, fmt.Errorf("polymarket: market order type must be FOK or FAK, got %s", orderType)
 	}

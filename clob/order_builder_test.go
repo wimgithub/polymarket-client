@@ -47,23 +47,35 @@ func TestBuildOrder_HappyPath(t *testing.T) {
 	}
 }
 
-func TestBuildOrder_WithTickRounding(t *testing.T) {
+func TestBuildOrder_TickSizeRejectsMisaligned(t *testing.T) {
 	signer := testKey()
 	client := NewClient("", WithSigner(signer))
 	b := NewOrderBuilder(client)
 
-	order, err := b.BuildOrder(OrderArgsV2{
+	_, err := b.BuildOrder(OrderArgsV2{
 		TokenID: "123456",
 		Price:   "0.673",
 		Size:    "10",
 		Side:    Buy,
 	}, CreateOrderOptions{TickSize: "0.01"})
+	if err == nil {
+		t.Fatal("expected error for price not aligned to tick size")
+	}
+}
+
+func TestBuildOrder_TickSizeAcceptsAligned(t *testing.T) {
+	signer := testKey()
+	client := NewClient("", WithSigner(signer))
+	b := NewOrderBuilder(client)
+
+	_, err := b.BuildOrder(OrderArgsV2{
+		TokenID: "123456",
+		Price:   "0.67",
+		Size:    "10",
+		Side:    Buy,
+	}, CreateOrderOptions{TickSize: "0.01"})
 	if err != nil {
 		t.Fatal(err)
-	}
-	// 0.673 rounded down to 0.01 tick = 0.67
-	if order.MakerAmount.String() != "6700000" {
-		t.Errorf("makerAmount = %s, want 6700000 (tick-rounded)", order.MakerAmount)
 	}
 }
 
@@ -110,19 +122,30 @@ func TestBuildOrder_WithCustomExpiration(t *testing.T) {
 	}
 }
 
-func TestBuildOrder_WithNegRisk(t *testing.T) {
+func TestBuildOrder_NegRiskSignatureDiverges(t *testing.T) {
 	signer := testKey()
 	client := NewClient("", WithSigner(signer))
 	b := NewOrderBuilder(client)
 
-	_, err := b.BuildOrder(OrderArgsV2{
+	args := OrderArgsV2{
 		TokenID: "123456",
 		Price:   "0.50",
 		Size:    "10",
 		Side:    Buy,
-	}, CreateOrderOptions{NegRisk: true})
+	}
+
+	orderNormal, err := b.BuildOrder(args, CreateOrderOptions{NegRisk: false})
 	if err != nil {
 		t.Fatal(err)
+	}
+
+	orderNegRisk, err := b.BuildOrder(args, CreateOrderOptions{NegRisk: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if orderNormal.Signature == orderNegRisk.Signature {
+		t.Fatal("signatures with NegRisk=false and NegRisk=true must differ")
 	}
 }
 
@@ -229,7 +252,7 @@ func TestCreateAndPostOrder_WithServer(t *testing.T) {
 		Price:   "0.50",
 		Size:    "20",
 		Side:    Buy,
-	}, CreateOrderOptions{}, GTC, false)
+	}, CreateOrderOptions{}, GTC, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -238,6 +261,9 @@ func TestCreateAndPostOrder_WithServer(t *testing.T) {
 	}
 	if gotReq.OrderType != GTC {
 		t.Errorf("posted orderType = %s, want GTC", gotReq.OrderType)
+	}
+	if gotReq.DeferExec != nil {
+		t.Errorf("deferExec should be nil when not set, got %v", *gotReq.DeferExec)
 	}
 }
 
@@ -263,7 +289,7 @@ func TestCreateAndPostMarketOrder_FOK(t *testing.T) {
 		Price:   "0.50",
 		Amount:  "100",
 		Side:    Buy,
-	}, CreateOrderOptions{}, FOK, false)
+	}, CreateOrderOptions{}, FOK, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -285,7 +311,7 @@ func TestCreateAndPostMarketOrder_RejectGTC(t *testing.T) {
 		Price:   "0.50",
 		Amount:  "100",
 		Side:    Buy,
-	}, CreateOrderOptions{}, GTC, false)
+	}, CreateOrderOptions{}, GTC, nil)
 	if err == nil {
 		t.Fatal("expected error for GTC market order")
 	}
@@ -301,7 +327,7 @@ func TestCreateAndPostMarketOrder_RejectGTD(t *testing.T) {
 		Price:   "0.50",
 		Amount:  "100",
 		Side:    Buy,
-	}, CreateOrderOptions{}, GTD, false)
+	}, CreateOrderOptions{}, GTD, nil)
 	if err == nil {
 		t.Fatal("expected error for GTD market order")
 	}

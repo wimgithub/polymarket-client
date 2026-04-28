@@ -132,6 +132,38 @@ func roundToTickSize(price, tickSize string) (string, error) {
 	return s, nil
 }
 
+// validatePriceTicks checks that price is an exact multiple of the given tick size.
+// Empty tickSize means "no validation".
+func validatePriceTicks(price, tickSize string) error {
+	if tickSize == "" || price == "" {
+		return nil
+	}
+	p, err := parseRat(price, "price")
+	if err != nil {
+		return err
+	}
+	t, err := parseRat(tickSize, "tickSize")
+	if err != nil {
+		return err
+	}
+	if t.Sign() <= 0 {
+		return nil
+	}
+	// check p % t == 0
+	div := new(big.Rat).Quo(p, t)
+	num := div.Num()
+	den := div.Denom()
+	if !div.IsInt() {
+		return fmt.Errorf("polymarket: price %q is not aligned to tick size %q", price, tickSize)
+	}
+	if den.Cmp(big.NewInt(1)) != 0 {
+		// not an exact multiple
+		return fmt.Errorf("polymarket: price %q is not aligned to tick size %q", price, tickSize)
+	}
+	_ = num // unused but confirms divisibility
+	return nil
+}
+
 // ValidateBytes32Hex checks that v is empty or a valid 0x-prefixed bytes32 hex string.
 func ValidateBytes32Hex(name, v string) error {
 	if v == "" {
