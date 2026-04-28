@@ -229,7 +229,22 @@ func (b *OrderBuilder) CreateAndPostOrderForToken(ctx context.Context, args Orde
 	}, CreateOrderOptions{TickSize: opts.TickSize, NegRisk: opts.NegRisk}, orderType, deferExec)
 }
 
-// validateDeferExec ensures deferExec (post-only) is only used with GTC/GTD.
+func (b *OrderBuilder) CreateAndPostMarketOrderForToken(ctx context.Context, args MarketOrderArgsV2, orderType OrderType, deferExec *bool, builderCode, metadata string) (*PostOrderResponse, error) {
+	opts, err := b.GetMarketOptions(ctx, args.TokenID)
+	if err != nil {
+		return nil, err
+	}
+	return b.CreateAndPostMarketOrder(ctx, MarketOrderArgsV2{
+		TokenID:       args.TokenID,
+		Price:         args.Price,
+		Amount:        args.Amount,
+		Side:          args.Side,
+		SignatureType: args.SignatureType,
+		BuilderCode:   builderCode,
+		Metadata:      metadata,
+	}, CreateOrderOptions{TickSize: opts.TickSize, NegRisk: opts.NegRisk}, orderType, deferExec)
+}
+
 func validateDeferExec(orderType OrderType, deferExec *bool) error {
 	if deferExec != nil && *deferExec && (orderType == FOK || orderType == FAK) {
 		return fmt.Errorf("polymarket: deferExec (post-only) is not compatible with %s; use GTC or GTD", orderType)
