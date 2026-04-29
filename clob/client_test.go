@@ -53,7 +53,7 @@ func TestCLOBAdditionalMarketDataEndpoints(t *testing.T) {
 		case "/fee-rate/token-1":
 			_, _ = w.Write([]byte(`{"base_fee":30}`))
 		case "/tick-size/token-1":
-			_, _ = w.Write([]byte(`{"minimum_tick_size":"0.01"}`))
+			_, _ = w.Write([]byte(`{"minimum_tick_size":0.01}`))
 		default:
 			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.String())
 		}
