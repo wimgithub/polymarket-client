@@ -34,7 +34,7 @@ func TestSignOrderFillsV2Defaults(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if int64(order.Salt) != 42 {
+	if order.Salt != 42 {
 		t.Fatalf("salt = %d, want 42", order.Salt)
 	}
 	if order.Timestamp.String() != "1700000000000" {

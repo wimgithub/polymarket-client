@@ -102,30 +102,48 @@ func prepareOrderForSigning(signer *polyauth.Signer, order *SignedOrder, config 
 	signerAddress := signer.Address().Hex()
 	if order.Maker == "" {
 		order.Maker = signerAddress
+	} else if !common.IsHexAddress(order.Maker) {
+		return fmt.Errorf("polymarket: invalid maker address %q", order.Maker)
+	} else {
+		order.Maker = common.HexToAddress(order.Maker).Hex()
 	}
 	if order.Signer == "" {
 		order.Signer = signerAddress
-	}
-	if !common.IsHexAddress(order.Maker) {
-		return fmt.Errorf("polymarket: invalid maker address %q", order.Maker)
-	}
-	if !common.IsHexAddress(order.Signer) {
+	} else if !common.IsHexAddress(order.Signer) {
 		return fmt.Errorf("polymarket: invalid signer address %q", order.Signer)
+	} else {
+		order.Signer = common.HexToAddress(order.Signer).Hex()
 	}
 	if !equalAddress(order.Signer, signerAddress) {
 		return fmt.Errorf("polymarket: order signer %s does not match signer %s", order.Signer, signerAddress)
 	}
-	if order.TokenID == "" {
-		return errors.New("polymarket: tokenId is required")
+
+	if order.Metadata == "" {
+		order.Metadata = ZeroBytes32
+	} else if err := ValidateBytes32Hex("metadata", order.Metadata); err != nil {
+		return err
 	}
-	if order.MakerAmount == "" {
-		return errors.New("polymarket: makerAmount is required")
+	if order.Builder == "" {
+		order.Builder = ZeroBytes32
+	} else if err := ValidateBytes32Hex("builder", order.Builder); err != nil {
+		return err
 	}
-	if order.TakerAmount == "" {
-		return errors.New("polymarket: takerAmount is required")
+	if err := validateUint256String("tokenId", order.TokenID, true, false); err != nil {
+		return err
+	}
+	if err := validateUint256String("makerAmount", order.MakerAmount, true, true); err != nil {
+		return err
+	}
+	if err := validateUint256String("takerAmount", order.TakerAmount, true, true); err != nil {
+		return err
 	}
 	if order.Side != Buy && order.Side != Sell {
 		return fmt.Errorf("polymarket: invalid side %q", order.Side)
+	}
+	switch order.SignatureType {
+	case SignatureTypeEOA, SignatureTypeProxy, SignatureTypeGnosisSafe, SignatureTypePoly1271:
+	default:
+		return fmt.Errorf("polymarket: invalid signatureType %d", order.SignatureType)
 	}
 	if order.Salt == 0 {
 		salt := config.salt
@@ -137,15 +155,13 @@ func prepareOrderForSigning(signer *polyauth.Signer, order *SignedOrder, config 
 			salt = generated
 		}
 		order.Salt = Int64(salt.Int64())
+	} else if order.Salt < 0 {
+		return fmt.Errorf("polymarket: salt must be non-negative")
 	}
 	if order.Timestamp == "" {
 		order.Timestamp = String(strconv.FormatInt(config.now().UnixMilli(), 10))
-	}
-	if order.Metadata == "" {
-		order.Metadata = ZeroBytes32
-	}
-	if order.Builder == "" {
-		order.Builder = ZeroBytes32
+	} else if err := validateUint256String("timestamp", order.Timestamp, true, true); err != nil {
+		return err
 	}
 	return nil
 }
