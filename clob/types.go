@@ -49,6 +49,16 @@ const (
 
 type TickSize string
 
+// UnmarshalJSON accepts both quoted and numeric tick sizes returned by CLOB.
+func (t *TickSize) UnmarshalJSON(data []byte) error {
+	var value String
+	if err := value.UnmarshalJSON(data); err != nil {
+		return err
+	}
+	*t = TickSize(value.String())
+	return nil
+}
+
 const (
 	TickSizeTenth       TickSize = "0.1"
 	TickSizeHundredth   TickSize = "0.01"
