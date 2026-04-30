@@ -296,6 +296,28 @@ func (d Date) IsZero() bool {
 	return d.Time().IsZero()
 }
 
+var timeLayouts = []string{
+	time.RFC3339Nano,
+	time.RFC3339,
+
+	// Polymarket / PostgreSQL style:
+	// "2024-01-08 22:29:46.138+00"
+	"2006-01-02 15:04:05.999999999-07",
+	"2006-01-02 15:04:05-07",
+
+	// Optional variants, useful if API returns +0000 or +00:00.
+	"2006-01-02 15:04:05.999999999-0700",
+	"2006-01-02 15:04:05-0700",
+	"2006-01-02 15:04:05.999999999-07:00",
+	"2006-01-02 15:04:05-07:00",
+
+	// No-timezone fallbacks.
+	"2006-01-02 15:04:05.999999999",
+	"2006-01-02 15:04:05",
+	"2006-01-02T15:04:05.999999999",
+	"2006-01-02T15:04:05",
+}
+
 // ParseTime parses RFC3339, date-only, Unix seconds, or Unix milliseconds values.
 func ParseTime(value string) (time.Time, error) {
 	value = strings.TrimSpace(value)
@@ -308,7 +330,7 @@ func ParseTime(value string) (time.Time, error) {
 		}
 		return time.Unix(n, 0).UTC(), nil
 	}
-	for _, layout := range []string{time.RFC3339Nano, time.RFC3339, "2006-01-02T15:04:05", "2006-01-02"} {
+	for _, layout := range timeLayouts {
 		if t, err := time.Parse(layout, value); err == nil {
 			return t.UTC(), nil
 		}
