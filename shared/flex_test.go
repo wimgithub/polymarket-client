@@ -44,15 +44,17 @@ func TestFlexibleSliceTypes(t *testing.T) {
 
 func TestFlexibleTimeTypes(t *testing.T) {
 	var got struct {
-		Seconds Time `json:"seconds"`
-		Millis  Time `json:"millis"`
-		RFC3339 Time `json:"rfc3339"`
-		Date    Date `json:"date"`
+		Seconds           Time `json:"seconds"`
+		Millis            Time `json:"millis"`
+		RFC3339           Time `json:"rfc3339"`
+		PosgresOffsetHour Time `json:"posgres_offset_hour"`
+		Date              Date `json:"date"`
 	}
 	if err := json.Unmarshal([]byte(`{
 		"seconds":"1713398400",
 		"millis":1713398400000,
 		"rfc3339":"2026-04-25T10:11:12Z",
+		"posgres_offset_hour": "2024-04-08 22:29:46.138+00",
 		"date":"2026-04-25"
 	}`), &got); err != nil {
 		t.Fatal(err)
