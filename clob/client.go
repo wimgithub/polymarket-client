@@ -35,10 +35,6 @@ type RelayerSubmitter interface {
 	SubmitTransaction(context.Context, *relayer.SubmitTransactionRequest, *relayer.SubmitTransactionResponse) error
 }
 
-type RelayerNonceGetter interface {
-	GetRelayPayload(context.Context, *relayer.NonceResponse, relayer.NonceType) error
-}
-
 type ProxyRelayerBuilder interface {
 	ProxySubmitTransactionRequest(
 		context.Context,

@@ -20,6 +20,9 @@ import (
 
 // BuildSplitPositionTx writes the destination and calldata for splitPosition into out.
 func (c *Client) BuildSplitPositionTx(req *SplitPositionRequest, out *CTFTransaction) error {
+	if req == nil {
+		return errors.New("polymarket: nil split position request")
+	}
 	data, err := ctfABI.Pack("splitPosition", req.CollateralToken, req.ParentCollectionID, req.ConditionID, req.Partition, req.Amount)
 	if err != nil {
 		return fmt.Errorf("ctf: pack splitPosition: %w", err)
@@ -34,6 +37,9 @@ func (c *Client) BuildSplitPositionTx(req *SplitPositionRequest, out *CTFTransac
 
 // BuildMergePositionsTx writes the destination and calldata for mergePositions into out.
 func (c *Client) BuildMergePositionsTx(req *MergePositionsRequest, out *CTFTransaction) error {
+	if req == nil {
+		return errors.New("polymarket: nil merge position request")
+	}
 	data, err := ctfABI.Pack("mergePositions", req.CollateralToken, req.ParentCollectionID, req.ConditionID, req.Partition, req.Amount)
 	if err != nil {
 		return fmt.Errorf("ctf: pack mergePositions: %w", err)
@@ -48,6 +54,9 @@ func (c *Client) BuildMergePositionsTx(req *MergePositionsRequest, out *CTFTrans
 
 // BuildRedeemPositionsTx writes the destination and calldata for redeemPositions into out.
 func (c *Client) BuildRedeemPositionsTx(req *RedeemPositionsRequest, out *CTFTransaction) error {
+	if req == nil {
+		return errors.New("polymarket: nil redeem position request")
+	}
 	data, err := ctfABI.Pack("redeemPositions", req.CollateralToken, req.ParentCollectionID, req.ConditionID, req.IndexSets)
 	if err != nil {
 		return fmt.Errorf("ctf: pack redeemPositions: %w", err)
@@ -114,6 +123,9 @@ func (c *Client) RedeemNegRisk(ctx context.Context, req *RedeemNegRiskRequest, o
 func (c *Client) SubmitCTFRelayerTransaction(ctx context.Context, tx *CTFTransaction, req *RelayerCTFRequest, out *relayer.SubmitTransactionResponse) error {
 	if tx == nil {
 		return errors.New("polymarket: nil CTF transaction")
+	}
+	if req == nil {
+		return errors.New("polymarket: nil relayer CTF request")
 	}
 	if strings.TrimSpace(req.ProxyWallet) == "" {
 		return errors.New("polymarket: proxy wallet is required")
@@ -381,6 +393,9 @@ func (c *Client) BuildCTFRelayerRequest(
 	if !common.IsHexAddress(from) {
 		return fmt.Errorf("polymarket: relayer from must be a valid hex address")
 	}
+	if req == nil {
+		req = new(CTFRelayerArgs)
+	}
 
 	var submit relayer.SubmitTransactionRequest
 	switch req.Type {
@@ -437,8 +452,10 @@ func (c *Client) BuildCTFRelayerRequest(
 	}
 
 	*out = RelayerCTFRequest{
+		To:              submit.To,
 		From:            submit.From,
 		ProxyWallet:     submit.ProxyWallet,
+		Data:            submit.Data,
 		Nonce:           submit.Nonce,
 		Signature:       submit.Signature,
 		SignatureParams: submit.SignatureParams,
