@@ -12,6 +12,14 @@ const (
 	NonceTypeSafe NonceType = "SAFE"
 )
 
+type CallType string
+
+const (
+	CallTypeInvalid      CallType = "0"
+	CallTypeCall         CallType = "1"
+	CallTypeDelegateCall CallType = "2"
+)
+
 // Credentials contains Relayer API-key authentication headers.
 type Credentials struct {
 	// APIKey is the relayer API key.
@@ -32,18 +40,25 @@ type BuilderCredentials struct {
 
 // SignatureParams contains Safe transaction signature parameters.
 type SignatureParams struct {
+	// Existing SAFE fields.
 	// GasPrice is the Safe gas price parameter.
-	GasPrice string `json:"gasPrice"`
+	GasPrice string `json:"gasPrice,omitempty"`
 	// Operation is the Safe operation parameter.
-	Operation string `json:"operation"`
+	Operation string `json:"operation,omitempty"`
 	// SafeTxGas is the Safe transaction gas parameter.
-	SafeTxGas string `json:"safeTxnGas"`
+	SafeTxGas string `json:"safeTxnGas,omitempty"`
 	// BaseGas is the Safe base gas parameter.
-	BaseGas string `json:"baseGas"`
+	BaseGas string `json:"baseGas,omitempty"`
 	// GasToken is the token used for gas refunds.
-	GasToken string `json:"gasToken"`
+	GasToken string `json:"gasToken,omitempty"`
 	// RefundReceiver is the address receiving gas refunds.
-	RefundReceiver string `json:"refundReceiver"`
+	RefundReceiver string `json:"refundReceiver,omitempty"`
+
+	// PROXY fields.
+	GasLimit   string `json:"gasLimit,omitempty"`
+	RelayerFee string `json:"relayerFee,omitempty"`
+	RelayHub   string `json:"relayHub,omitempty"`
+	Relay      string `json:"relay,omitempty"`
 }
 
 // SubmitTransactionRequest is the request body for POST /submit.
@@ -63,7 +78,7 @@ type SubmitTransactionRequest struct {
 	// SignatureParams are Safe transaction parameters.
 	SignatureParams SignatureParams `json:"signatureParams"`
 	// Type is the transaction type, typically SAFE or PROXY.
-	Type string `json:"type"`
+	Type NonceType `json:"type"`
 	// Metadata is optional caller-provided transaction metadata.
 	Metadata string `json:"metadata,omitempty"`
 	// Value is the native token value for the call when required.
@@ -138,4 +153,22 @@ type APIKey struct {
 	CreatedAt pmtypes.Time `json:"createdAt"`
 	// UpdatedAt is the key update timestamp.
 	UpdatedAt pmtypes.Time `json:"updatedAt"`
+}
+
+type ProxyTransaction struct {
+	To       string   `json:"to"`
+	TypeCode CallType `json:"typeCode"`
+	Data     string   `json:"data"`
+	Value    string   `json:"value"`
+}
+
+type ProxySubmitTransactionArgs struct {
+	// From is the EOA signer address. If empty, signer.Address() is used.
+	From string
+	// Data is encoded proxy transaction batch calldata.
+	Data string
+	// Metadata is optional relayer metadata.
+	Metadata string
+	// GasLimit optionally overrides the computed proxy gas limit.
+	GasLimit string
 }

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"strings"
 	"time"
 
 	"github.com/bububa/polymarket-client/relayer"
@@ -17,7 +18,7 @@ import (
 )
 
 // BuildSplitPositionTx writes the destination and calldata for splitPosition into out.
-func (c *Client) BuildSplitPositionTx(req SplitPositionRequest, out *CTFTransaction) error {
+func (c *Client) BuildSplitPositionTx(req *SplitPositionRequest, out *CTFTransaction) error {
 	data, err := ctfABI.Pack("splitPosition", req.CollateralToken, req.ParentCollectionID, req.ConditionID, req.Partition, req.Amount)
 	if err != nil {
 		return fmt.Errorf("ctf: pack splitPosition: %w", err)
@@ -31,7 +32,7 @@ func (c *Client) BuildSplitPositionTx(req SplitPositionRequest, out *CTFTransact
 }
 
 // BuildMergePositionsTx writes the destination and calldata for mergePositions into out.
-func (c *Client) BuildMergePositionsTx(req MergePositionsRequest, out *CTFTransaction) error {
+func (c *Client) BuildMergePositionsTx(req *MergePositionsRequest, out *CTFTransaction) error {
 	data, err := ctfABI.Pack("mergePositions", req.CollateralToken, req.ParentCollectionID, req.ConditionID, req.Partition, req.Amount)
 	if err != nil {
 		return fmt.Errorf("ctf: pack mergePositions: %w", err)
@@ -45,7 +46,7 @@ func (c *Client) BuildMergePositionsTx(req MergePositionsRequest, out *CTFTransa
 }
 
 // BuildRedeemPositionsTx writes the destination and calldata for redeemPositions into out.
-func (c *Client) BuildRedeemPositionsTx(req RedeemPositionsRequest, out *CTFTransaction) error {
+func (c *Client) BuildRedeemPositionsTx(req *RedeemPositionsRequest, out *CTFTransaction) error {
 	data, err := ctfABI.Pack("redeemPositions", req.CollateralToken, req.ParentCollectionID, req.ConditionID, req.IndexSets)
 	if err != nil {
 		return fmt.Errorf("ctf: pack redeemPositions: %w", err)
@@ -59,7 +60,7 @@ func (c *Client) BuildRedeemPositionsTx(req RedeemPositionsRequest, out *CTFTran
 }
 
 // BuildRedeemNegRiskTx writes the destination and calldata for neg-risk adapter redemption into out.
-func (c *Client) BuildRedeemNegRiskTx(req RedeemNegRiskRequest, out *CTFTransaction) error {
+func (c *Client) BuildRedeemNegRiskTx(req *RedeemNegRiskRequest, out *CTFTransaction) error {
 	data, err := negRiskABI.Pack("redeemPositions", req.ConditionID, req.Amounts)
 	if err != nil {
 		return fmt.Errorf("ctf: pack neg-risk redeemPositions: %w", err)
@@ -73,7 +74,7 @@ func (c *Client) BuildRedeemNegRiskTx(req RedeemNegRiskRequest, out *CTFTransact
 }
 
 // SplitPosition submits a splitPosition transaction and writes its receipt into out.
-func (c *Client) SplitPosition(ctx context.Context, req SplitPositionRequest, out *TxReceipt) error {
+func (c *Client) SplitPosition(ctx context.Context, req *SplitPositionRequest, out *TxReceipt) error {
 	var tx CTFTransaction
 	if err := c.BuildSplitPositionTx(req, &tx); err != nil {
 		return err
@@ -82,7 +83,7 @@ func (c *Client) SplitPosition(ctx context.Context, req SplitPositionRequest, ou
 }
 
 // MergePositions submits a mergePositions transaction and writes its receipt into out.
-func (c *Client) MergePositions(ctx context.Context, req MergePositionsRequest, out *TxReceipt) error {
+func (c *Client) MergePositions(ctx context.Context, req *MergePositionsRequest, out *TxReceipt) error {
 	var tx CTFTransaction
 	if err := c.BuildMergePositionsTx(req, &tx); err != nil {
 		return err
@@ -91,7 +92,7 @@ func (c *Client) MergePositions(ctx context.Context, req MergePositionsRequest, 
 }
 
 // RedeemPositions submits a redeemPositions transaction and writes its receipt into out.
-func (c *Client) RedeemPositions(ctx context.Context, req RedeemPositionsRequest, out *TxReceipt) error {
+func (c *Client) RedeemPositions(ctx context.Context, req *RedeemPositionsRequest, out *TxReceipt) error {
 	var tx CTFTransaction
 	if err := c.BuildRedeemPositionsTx(req, &tx); err != nil {
 		return err
@@ -100,7 +101,7 @@ func (c *Client) RedeemPositions(ctx context.Context, req RedeemPositionsRequest
 }
 
 // RedeemNegRisk submits a neg-risk adapter redemption transaction and writes its receipt into out.
-func (c *Client) RedeemNegRisk(ctx context.Context, req RedeemNegRiskRequest, out *TxReceipt) error {
+func (c *Client) RedeemNegRisk(ctx context.Context, req *RedeemNegRiskRequest, out *TxReceipt) error {
 	var tx CTFTransaction
 	if err := c.BuildRedeemNegRiskTx(req, &tx); err != nil {
 		return err
@@ -109,15 +110,23 @@ func (c *Client) RedeemNegRisk(ctx context.Context, req RedeemNegRiskRequest, ou
 }
 
 // SubmitCTFRelayerTransaction submits built CTF calldata through the configured relayer.
-func (c *Client) SubmitCTFRelayerTransaction(ctx context.Context, tx *CTFTransaction, req RelayerCTFRequest, out *relayer.SubmitTransactionResponse) error {
+func (c *Client) SubmitCTFRelayerTransaction(ctx context.Context, tx *CTFTransaction, req *RelayerCTFRequest, out *relayer.SubmitTransactionResponse) error {
 	if tx == nil {
 		return errors.New("polymarket: nil CTF transaction")
 	}
-	return c.SubmitRelayerTransaction(ctx, relayer.SubmitTransactionRequest{
+	to := strings.TrimSpace(req.To)
+	if to == "" {
+		to = tx.To.Hex()
+	}
+	data := strings.TrimSpace(req.Data)
+	if data == "" {
+		data = hexutil.Encode(tx.Data)
+	}
+	return c.SubmitRelayerTransaction(ctx, &relayer.SubmitTransactionRequest{
 		From:            req.From,
-		To:              tx.To.Hex(),
+		To:              to,
 		ProxyWallet:     req.ProxyWallet,
-		Data:            hexutil.Encode(tx.Data),
+		Data:            data,
 		Nonce:           req.Nonce,
 		Signature:       req.Signature,
 		SignatureParams: req.SignatureParams,
@@ -252,4 +261,156 @@ func waitForReceipt(ctx context.Context, ec *ethclient.Client, txHash common.Has
 			}
 		}
 	}
+}
+
+// SplitPositionRelayer builds a splitPosition transaction, signs a PROXY relayer request,
+// and submits it through the configured relayer.
+func (c *Client) SplitPositionRelayer(
+	ctx context.Context,
+	req *SplitPositionRequest,
+	relayerReq *CTFRelayerArgs,
+	out *relayer.SubmitTransactionResponse,
+) error {
+	var tx CTFTransaction
+	if err := c.BuildSplitPositionTx(req, &tx); err != nil {
+		return err
+	}
+
+	var submitReq RelayerCTFRequest
+	if err := c.BuildCTFRelayerRequest(ctx, &tx, relayerReq, &submitReq); err != nil {
+		return err
+	}
+
+	return c.SubmitCTFRelayerTransaction(ctx, &tx, &submitReq, out)
+}
+
+// MergePositionsRelayer builds a mergePositions transaction, signs a PROXY relayer request,
+// and submits it through the configured relayer.
+func (c *Client) MergePositionsRelayer(
+	ctx context.Context,
+	req *MergePositionsRequest,
+	relayerReq *CTFRelayerArgs,
+	out *relayer.SubmitTransactionResponse,
+) error {
+	var tx CTFTransaction
+	if err := c.BuildMergePositionsTx(req, &tx); err != nil {
+		return err
+	}
+
+	var submitReq RelayerCTFRequest
+	if err := c.BuildCTFRelayerRequest(ctx, &tx, relayerReq, &submitReq); err != nil {
+		return err
+	}
+
+	return c.SubmitCTFRelayerTransaction(ctx, &tx, &submitReq, out)
+}
+
+// RedeemPositionsRelayer builds a redeemPositions transaction, signs a PROXY relayer request,
+// and submits it through the configured relayer.
+func (c *Client) RedeemPositionsRelayer(
+	ctx context.Context,
+	req *RedeemPositionsRequest,
+	relayerReq *CTFRelayerArgs,
+	out *relayer.SubmitTransactionResponse,
+) error {
+	var tx CTFTransaction
+	if err := c.BuildRedeemPositionsTx(req, &tx); err != nil {
+		return err
+	}
+
+	var submitReq RelayerCTFRequest
+	if err := c.BuildCTFRelayerRequest(ctx, &tx, relayerReq, &submitReq); err != nil {
+		return err
+	}
+
+	return c.SubmitCTFRelayerTransaction(ctx, &tx, &submitReq, out)
+}
+
+// RedeemNegRiskRelayer builds a neg-risk redeemPositions transaction, signs a PROXY relayer request,
+// and submits it through the configured relayer.
+func (c *Client) RedeemNegRiskRelayer(
+	ctx context.Context,
+	req *RedeemNegRiskRequest,
+	relayerReq *CTFRelayerArgs,
+	out *relayer.SubmitTransactionResponse,
+) error {
+	var tx CTFTransaction
+	if err := c.BuildRedeemNegRiskTx(req, &tx); err != nil {
+		return err
+	}
+
+	var submitReq RelayerCTFRequest
+	if err := c.BuildCTFRelayerRequest(ctx, &tx, relayerReq, &submitReq); err != nil {
+		return err
+	}
+
+	return c.SubmitCTFRelayerTransaction(ctx, &tx, &submitReq, out)
+}
+
+// BuildCTFRelayerRequest builds and signs a PROXY relayer request for built CTF calldata.
+func (c *Client) BuildCTFRelayerRequest(
+	ctx context.Context,
+	tx *CTFTransaction,
+	req *CTFRelayerArgs,
+	out *RelayerCTFRequest,
+) error {
+	if tx == nil {
+		return errors.New("polymarket: nil CTF transaction")
+	}
+	if out == nil {
+		return errors.New("polymarket: nil relayer CTF request output")
+	}
+	if c.auth.Signer == nil {
+		return errors.New("polymarket: signer is required")
+	}
+	if c.relayerClient == nil {
+		return errors.New("polymarket: relayer client is required")
+	}
+
+	builder, ok := c.relayerClient.(ProxyRelayerBuilder)
+	if !ok {
+		return errors.New("polymarket: relayer client does not support proxy request signing")
+	}
+
+	from := strings.TrimSpace(req.From)
+	if from == "" {
+		from = c.auth.Signer.Address().Hex()
+	}
+	if !common.IsHexAddress(from) {
+		return fmt.Errorf("polymarket: relayer from must be a valid hex address")
+	}
+
+	encodedData, err := relayer.EncodeProxyTransactionData([]relayer.ProxyTransaction{
+		{
+			To:       tx.To.Hex(),
+			TypeCode: relayer.CallTypeCall,
+			Data:     hexutil.Encode(tx.Data),
+			Value:    "0",
+		},
+	})
+	if err != nil {
+		return err
+	}
+
+	var submit relayer.SubmitTransactionRequest
+	if err := builder.ProxySubmitTransactionRequest(ctx, c.auth.Signer, &relayer.ProxySubmitTransactionArgs{
+		From:     from,
+		Data:     encodedData,
+		Metadata: req.Metadata,
+		GasLimit: req.GasLimit,
+	}, &submit); err != nil {
+		return err
+	}
+
+	*out = RelayerCTFRequest{
+		From:            submit.From,
+		ProxyWallet:     submit.ProxyWallet,
+		Nonce:           submit.Nonce,
+		Signature:       submit.Signature,
+		SignatureParams: submit.SignatureParams,
+		Type:            submit.Type,
+		Metadata:        submit.Metadata,
+		Value:           submit.Value,
+	}
+	return nil
 }

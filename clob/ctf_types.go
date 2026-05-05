@@ -113,10 +113,14 @@ type CTFTransaction struct {
 
 // RelayerCTFRequest contains the relayer metadata needed to submit CTF calldata.
 type RelayerCTFRequest struct {
+	// To is the contract address that should receive the transaction.
+	To string
 	// From is the signer address.
 	From string
 	// ProxyWallet is the user's Polymarket proxy wallet.
 	ProxyWallet string
+	// Data is the ABI-encoded calldata.
+	Data string
 	// Nonce is the relayer transaction nonce.
 	Nonce string
 	// Signature is the 0x-prefixed Safe or proxy transaction signature.
@@ -124,9 +128,18 @@ type RelayerCTFRequest struct {
 	// SignatureParams are Safe transaction parameters.
 	SignatureParams relayer.SignatureParams
 	// Type is the relayer transaction type, typically SAFE or PROXY.
-	Type string
+	Type relayer.NonceType
 	// Metadata is optional caller-provided transaction metadata.
 	Metadata string
 	// Value is the native token value for the call when required.
 	Value string
+}
+
+type CTFRelayerArgs struct {
+	// From is the EOA signer address. If empty, client signer address is used.
+	From string
+	// Metadata is optional relayer metadata.
+	Metadata string
+	// GasLimit optionally overrides the computed proxy gas limit.
+	GasLimit string
 }

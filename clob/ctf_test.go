@@ -24,11 +24,12 @@ func TestBuildSplitPositionTx(t *testing.T) {
 	}
 	client := NewClient("")
 	var tx CTFTransaction
-	err = client.BuildSplitPositionTx(SplitBinary(
+
+	req := SplitBinary(
 		contracts.Collateral,
 		common.HexToHash("0x1234"),
-		big.NewInt(1_000_000),
-	), &tx)
+		big.NewInt(1_000_000))
+	err = client.BuildSplitPositionTx(&req, &tx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -45,10 +46,10 @@ func TestBuildSplitPositionTx(t *testing.T) {
 }
 
 type captureRelayer struct {
-	req relayer.SubmitTransactionRequest
+	req *relayer.SubmitTransactionRequest
 }
 
-func (r *captureRelayer) SubmitTransaction(_ context.Context, req relayer.SubmitTransactionRequest, out *relayer.SubmitTransactionResponse) error {
+func (r *captureRelayer) SubmitTransaction(_ context.Context, req *relayer.SubmitTransactionRequest, out *relayer.SubmitTransactionResponse) error {
 	r.req = req
 	*out = relayer.SubmitTransactionResponse{TransactionID: "tx-1", State: "STATE_NEW"}
 	return nil
@@ -61,7 +62,7 @@ func TestSubmitCTFRelayerTransaction(t *testing.T) {
 	err := client.SubmitCTFRelayerTransaction(context.Background(), &CTFTransaction{
 		To:   common.HexToAddress("0x0000000000000000000000000000000000000001"),
 		Data: []byte{0x12, 0x34},
-	}, RelayerCTFRequest{
+	}, &RelayerCTFRequest{
 		From:        "0xfrom",
 		ProxyWallet: "0xproxy",
 		Nonce:       "7",
