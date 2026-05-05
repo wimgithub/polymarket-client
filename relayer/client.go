@@ -69,7 +69,7 @@ func New(config Config) *Client {
 func (c *Client) Host() string { return c.host }
 
 // SubmitTransaction submits a signed transaction to the relayer and writes the response into out.
-func (c *Client) SubmitTransaction(ctx context.Context, req SubmitTransactionRequest, out *SubmitTransactionResponse) error {
+func (c *Client) SubmitTransaction(ctx context.Context, req *SubmitTransactionRequest, out *SubmitTransactionResponse) error {
 	return c.do(ctx, http.MethodPost, "/submit", nil, req, out)
 }
 

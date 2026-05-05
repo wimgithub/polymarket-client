@@ -32,7 +32,25 @@ type Client struct {
 
 // RelayerSubmitter is the relayer capability used by CLOB CTF helpers.
 type RelayerSubmitter interface {
-	SubmitTransaction(context.Context, relayer.SubmitTransactionRequest, *relayer.SubmitTransactionResponse) error
+	SubmitTransaction(context.Context, *relayer.SubmitTransactionRequest, *relayer.SubmitTransactionResponse) error
+}
+
+type ProxyRelayerBuilder interface {
+	ProxySubmitTransactionRequest(
+		context.Context,
+		*polyauth.Signer,
+		*relayer.ProxySubmitTransactionArgs,
+		*relayer.SubmitTransactionRequest,
+	) error
+}
+
+type SafeRelayerBuilder interface {
+	SafeSubmitTransactionRequest(
+		context.Context,
+		*polyauth.Signer,
+		*relayer.SafeSubmitTransactionArgs,
+		*relayer.SubmitTransactionRequest,
+	) error
 }
 
 // Option customizes a CLOB client created by NewClient.
@@ -118,7 +136,7 @@ func (c *Client) Signer() *polyauth.Signer  { return c.auth.Signer }
 func (c *Client) Credentials() *Credentials { return c.auth.Credentials }
 
 // SubmitRelayerTransaction submits a pre-signed transaction through the configured relayer.
-func (c *Client) SubmitRelayerTransaction(ctx context.Context, req relayer.SubmitTransactionRequest, out *relayer.SubmitTransactionResponse) error {
+func (c *Client) SubmitRelayerTransaction(ctx context.Context, req *relayer.SubmitTransactionRequest, out *relayer.SubmitTransactionResponse) error {
 	if c.relayerClient == nil {
 		return errors.New("polymarket: relayer client is not configured")
 	}
