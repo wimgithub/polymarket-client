@@ -63,10 +63,10 @@ func EncodeProxyTransactionData(txs []ProxyTransaction) (string, error) {
 	}
 
 	type proxyTuple struct {
-		To       common.Address
 		TypeCode uint8
-		Data     []byte
+		To       common.Address
 		Value    *big.Int
+		Data     []byte
 	}
 
 	values := make([]proxyTuple, 0, len(txs))
