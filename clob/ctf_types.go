@@ -91,8 +91,6 @@ func RedeemBinary(collateral common.Address, conditionID common.Hash) RedeemPosi
 type RedeemNegRiskRequest struct {
 	// ConditionID is the resolved neg-risk condition ID.
 	ConditionID common.Hash
-	// Amounts contains the per-index-set amounts expected by the neg-risk adapter.
-	Amounts []*big.Int
 }
 
 // TxReceipt is the minimal transaction receipt returned by CTF helpers.

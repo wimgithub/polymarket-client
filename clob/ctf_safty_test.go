@@ -16,11 +16,11 @@ import (
 const ctfSafetyTestPrivateKey = "0x59c6995e998f97a5a0044966f094538092e1db9e7b9c0e5a4e9e4e9e4e9e4e9e"
 
 var (
-	ctfSafetyConditionID       = common.HexToHash("0x0102030405060708091011121314151617181920212223242526272829303132")
-	ctfSafetyParentCollection  = common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000")
-	ctfSafetyCollateral        = mustContractConfigForTest(PolygonChainID).Collateral
-	ctfSafetyConditionalTokens = mustContractConfigForTest(PolygonChainID).ConditionalTokens
-	ctfSafetyNegRiskAdapter    = mustContractConfigForTest(PolygonChainID).NegRiskAdapter
+	ctfSafetyConditionID                 = common.HexToHash("0x0102030405060708091011121314151617181920212223242526272829303132")
+	ctfSafetyParentCollection            = common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000")
+	ctfSafetyCollateral                  = mustContractConfigForTest(PolygonChainID).Collateral
+	ctfSafetyCTFCollateralAdapter        = mustContractConfigForTest(PolygonChainID).CTFCollateralAdapter
+	ctfSafetyNegRiskCTFCollateralAdapter = mustContractConfigForTest(PolygonChainID).NegRiskCTFCollateralAdapter
 )
 
 func TestBuildCTFTransactions_ABIRoundTrip(t *testing.T) {
@@ -40,7 +40,7 @@ func TestBuildCTFTransactions_ABIRoundTrip(t *testing.T) {
 			t.Fatalf("BuildSplitPositionTx: %v", err)
 		}
 
-		assertAddressEqualCTF(t, "to", ctfSafetyConditionalTokens, tx.To)
+		assertAddressEqualCTF(t, "to", ctfSafetyCTFCollateralAdapter, tx.To)
 		assertMethodSelectorCTF(t, "splitPosition", ctfABI.Methods["splitPosition"].ID, tx.Data)
 
 		values, err := ctfABI.Methods["splitPosition"].Inputs.Unpack(tx.Data[4:])
@@ -69,7 +69,7 @@ func TestBuildCTFTransactions_ABIRoundTrip(t *testing.T) {
 			t.Fatalf("BuildMergePositionsTx: %v", err)
 		}
 
-		assertAddressEqualCTF(t, "to", ctfSafetyConditionalTokens, tx.To)
+		assertAddressEqualCTF(t, "to", ctfSafetyCTFCollateralAdapter, tx.To)
 		assertMethodSelectorCTF(t, "mergePositions", ctfABI.Methods["mergePositions"].ID, tx.Data)
 
 		values, err := ctfABI.Methods["mergePositions"].Inputs.Unpack(tx.Data[4:])
@@ -97,7 +97,7 @@ func TestBuildCTFTransactions_ABIRoundTrip(t *testing.T) {
 			t.Fatalf("BuildRedeemPositionsTx: %v", err)
 		}
 
-		assertAddressEqualCTF(t, "to", ctfSafetyConditionalTokens, tx.To)
+		assertAddressEqualCTF(t, "to", ctfSafetyCTFCollateralAdapter, tx.To)
 		assertMethodSelectorCTF(t, "redeemPositions", ctfABI.Methods["redeemPositions"].ID, tx.Data)
 
 		values, err := ctfABI.Methods["redeemPositions"].Inputs.Unpack(tx.Data[4:])
@@ -114,10 +114,6 @@ func TestBuildCTFTransactions_ABIRoundTrip(t *testing.T) {
 	t.Run("redeemNegRisk", func(t *testing.T) {
 		req := &RedeemNegRiskRequest{
 			ConditionID: ctfSafetyConditionID,
-			Amounts: []*big.Int{
-				big.NewInt(1_000_000),
-				big.NewInt(2_000_000),
-			},
 		}
 
 		var tx CTFTransaction
@@ -125,16 +121,18 @@ func TestBuildCTFTransactions_ABIRoundTrip(t *testing.T) {
 			t.Fatalf("BuildRedeemNegRiskTx: %v", err)
 		}
 
-		assertAddressEqualCTF(t, "to", ctfSafetyNegRiskAdapter, tx.To)
-		assertMethodSelectorCTF(t, "redeemPositions", negRiskABI.Methods["redeemPositions"].ID, tx.Data)
+		assertAddressEqualCTF(t, "to", ctfSafetyNegRiskCTFCollateralAdapter, tx.To)
+		assertMethodSelectorCTF(t, "redeemPositions", ctfABI.Methods["redeemPositions"].ID, tx.Data)
 
-		values, err := negRiskABI.Methods["redeemPositions"].Inputs.Unpack(tx.Data[4:])
+		values, err := ctfABI.Methods["redeemPositions"].Inputs.Unpack(tx.Data[4:])
 		if err != nil {
 			t.Fatalf("unpack neg-risk redeemPositions calldata: %v", err)
 		}
 
-		assertHashEqualCTF(t, "conditionID", req.ConditionID, values[0].([32]byte))
-		assertBigIntSliceEqualCTF(t, "amounts", req.Amounts, values[1].([]*big.Int))
+		assertAddressEqualCTF(t, "collateralToken placeholder", common.Address{}, values[0].(common.Address))
+		assertHashEqualCTF(t, "parentCollectionID placeholder", common.Hash{}, values[1].([32]byte))
+		assertHashEqualCTF(t, "conditionID", req.ConditionID, values[2].([32]byte))
+		assertBigIntSliceEqualCTF(t, "indexSets placeholder", BinaryPartition(), values[3].([]*big.Int))
 	})
 }
 

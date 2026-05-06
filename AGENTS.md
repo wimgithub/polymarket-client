@@ -16,25 +16,25 @@ CI uses Go >=1.23.0. `go.mod` currently declares 1.22, but prefer 1.23+ when dev
 For golden vector maintenance:
 
 ```bash
-make golden-mise
+make
 ```
 
 Golden-vector generation uses Python and the official `py-clob-client-v2` reference implementation. Do not require this for normal unit tests.
 
 ## Package Map
 
-| Package | Purpose | Auth Required |
-|---|---|---|
-| `clob/` | CLOB v2 API — orders, markets, positions, RFQ, CTF helpers, deposit-wallet helpers | Mixed (0–2) |
-| `clob/ws/` | WebSocket for live order book / order updates | L2 for user channel |
-| `clob/ws/rtds/` | Real-time data subscriptions | None |
-| `relayer/` | Relayer API wire client — submit signed SAFE/PROXY/WALLET requests | API key |
-| `data/` | Read-only market data API | None |
-| `gamma/` | Read-only gamma market-data API | None |
-| `bridge/` | Bridge API | None |
-| `shared/` | Shared scalar types (`String`, `Int`, `Float64`, `Time`) | — |
-| `internal/polyhttp/` | HTTP client with `AuthLevel` (`0=None`, `1=L1`, `2=L2`) | — |
-| `internal/polyauth/` | EIP-712 signing, L1/L2 header generation, low-level hash signing | — |
+| Package              | Purpose                                                                            | Auth Required       |
+| -------------------- | ---------------------------------------------------------------------------------- | ------------------- |
+| `clob/`              | CLOB v2 API — orders, markets, positions, RFQ, CTF helpers, deposit-wallet helpers | Mixed (0–2)         |
+| `clob/ws/`           | WebSocket for live order book / order updates                                      | L2 for user channel |
+| `clob/ws/rtds/`      | Real-time data subscriptions                                                       | None                |
+| `relayer/`           | Relayer API wire client — submit signed SAFE/PROXY/WALLET requests                 | API key             |
+| `data/`              | Read-only market data API                                                          | None                |
+| `gamma/`             | Read-only gamma market-data API                                                    | None                |
+| `bridge/`            | Bridge API                                                                         | None                |
+| `shared/`            | Shared scalar types (`String`, `Int`, `Float64`, `Time`)                           | —                   |
+| `internal/polyhttp/` | HTTP client with `AuthLevel` (`0=None`, `1=L1`, `2=L2`)                            | —                   |
+| `internal/polyauth/` | EIP-712 signing, L1/L2 header generation, low-level hash signing                   | —                   |
 
 ## Client Construction Pattern
 
@@ -83,12 +83,12 @@ api credentials are required for level 2 authenticated request
 
 CLOB v2 order signing supports these signature types:
 
-| Signature type | Value | Meaning |
-|---|---:|---|
-| `SignatureTypeEOA` | `0` | Direct EOA signing |
-| `SignatureTypeProxy` | `1` | Polymarket proxy wallet |
-| `SignatureTypeGnosisSafe` | `2` | Safe wallet |
-| `SignatureTypePoly1271` | `3` | Deposit wallet / POLY_1271 |
+| Signature type            | Value | Meaning                    |
+| ------------------------- | ----: | -------------------------- |
+| `SignatureTypeEOA`        |   `0` | Direct EOA signing         |
+| `SignatureTypeProxy`      |   `1` | Polymarket proxy wallet    |
+| `SignatureTypeGnosisSafe` |   `2` | Safe wallet                |
+| `SignatureTypePoly1271`   |   `3` | Deposit wallet / POLY_1271 |
 
 ### Deposit wallet / POLY_1271
 
@@ -206,10 +206,10 @@ For CTF split / merge / redeem, prefer the CTF convenience methods below instead
 
 The CTF helpers have three execution modes:
 
-| Mode | API |
-|---|---|
-| Direct RPC transaction | `SplitPosition`, `MergePositions`, `RedeemPositions`, `RedeemNegRisk` |
-| Legacy relayer SAFE/PROXY | `SplitPositionRelayer`, `MergePositionsRelayer`, `RedeemPositionsRelayer`, `RedeemNegRiskRelayer` |
+| Mode                        | API                                                                                                                                       |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| Direct RPC transaction      | `SplitPosition`, `MergePositions`, `RedeemPositions`, `RedeemNegRisk`                                                                     |
+| Legacy relayer SAFE/PROXY   | `SplitPositionRelayer`, `MergePositionsRelayer`, `RedeemPositionsRelayer`, `RedeemNegRiskRelayer`                                         |
 | Deposit wallet WALLET batch | `SplitPositionWithDepositWallet`, `MergePositionsWithDepositWallet`, `RedeemPositionsWithDepositWallet`, `RedeemNegRiskWithDepositWallet` |
 
 ### Prefer convenience methods for deposit-wallet CTF operations
@@ -378,15 +378,15 @@ go test -v ./...
 
 Important test areas:
 
-| Area | Files / coverage |
-|---|---|
-| Auth | `clob/auth_test.go` |
-| Client endpoints and flexible JSON | `clob/client_test.go`, `shared/flex_test.go` |
-| Order building and signing | `clob/order_builder_test.go`, `clob/sign_order_test.go`, golden vector tests |
-| Deposit wallet order signing | `clob/deposit_wallet_signing_test.go` |
-| Deposit wallet relayer / CTF | `clob/deposit_wallet*_test.go`, `relayer/types_test.go`, `relayer/deposit_wallet_test.go` |
-| CTF calldata and safety | `clob/ctf*_test.go` |
-| Relayer SAFE/PROXY | `relayer/client_test.go`, `relayer/proxy_test.go`, `relayer/safe_test.go` |
+| Area                               | Files / coverage                                                                          |
+| ---------------------------------- | ----------------------------------------------------------------------------------------- |
+| Auth                               | `clob/auth_test.go`                                                                       |
+| Client endpoints and flexible JSON | `clob/client_test.go`, `shared/flex_test.go`                                              |
+| Order building and signing         | `clob/order_builder_test.go`, `clob/sign_order_test.go`, golden vector tests              |
+| Deposit wallet order signing       | `clob/deposit_wallet_signing_test.go`                                                     |
+| Deposit wallet relayer / CTF       | `clob/deposit_wallet*_test.go`, `relayer/types_test.go`, `relayer/deposit_wallet_test.go` |
+| CTF calldata and safety            | `clob/ctf*_test.go`                                                                       |
+| Relayer SAFE/PROXY                 | `relayer/client_test.go`, `relayer/proxy_test.go`, `relayer/safe_test.go`                 |
 
 All unit tests should use mocks or `httptest.NewServer`; do not require live Polymarket APIs or live RPC for normal CI.
 

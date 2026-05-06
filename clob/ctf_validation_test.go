@@ -30,16 +30,6 @@ func TestBuildSplitPositionTxRejectsInvalidInputs(t *testing.T) {
 			want: "nil CTF transaction output",
 		},
 		{
-			name: "missing collateral",
-			req: func() *SplitPositionRequest {
-				req := validSplitPositionRequest()
-				req.CollateralToken = common.Address{}
-				return req
-			}(),
-			out:  &CTFTransaction{},
-			want: "collateral token is required",
-		},
-		{
 			name: "missing condition id",
 			req: func() *SplitPositionRequest {
 				req := validSplitPositionRequest()
@@ -109,6 +99,30 @@ func TestBuildSplitPositionTxRejectsInvalidInputs(t *testing.T) {
 	}
 }
 
+func TestBuildSplitPositionTxDefaultsCollateralToken(t *testing.T) {
+	client := NewClient("", WithChainID(PolygonChainID))
+	contracts, err := Contracts(PolygonChainID)
+	if err != nil {
+		t.Fatalf("Contracts: %v", err)
+	}
+
+	req := validSplitPositionRequest()
+	req.CollateralToken = common.Address{}
+
+	var tx CTFTransaction
+	if err := client.BuildSplitPositionTx(req, &tx); err != nil {
+		t.Fatalf("BuildSplitPositionTx: %v", err)
+	}
+
+	assertAddressEqualCTF(t, "to", contracts.CTFCollateralAdapter, tx.To)
+
+	values, err := ctfABI.Methods["splitPosition"].Inputs.Unpack(tx.Data[4:])
+	if err != nil {
+		t.Fatalf("unpack splitPosition calldata: %v", err)
+	}
+	assertAddressEqualCTF(t, "default collateral", contracts.Collateral, values[0].(common.Address))
+}
+
 func TestBuildMergePositionsTxRejectsInvalidInputs(t *testing.T) {
 	client := NewClient("", WithChainID(PolygonChainID))
 
@@ -129,16 +143,6 @@ func TestBuildMergePositionsTxRejectsInvalidInputs(t *testing.T) {
 			req:  validMergePositionsRequest(),
 			out:  nil,
 			want: "nil CTF transaction output",
-		},
-		{
-			name: "missing collateral",
-			req: func() *MergePositionsRequest {
-				req := validMergePositionsRequest()
-				req.CollateralToken = common.Address{}
-				return req
-			}(),
-			out:  &CTFTransaction{},
-			want: "collateral token is required",
 		},
 		{
 			name: "missing condition id",
@@ -180,6 +184,30 @@ func TestBuildMergePositionsTxRejectsInvalidInputs(t *testing.T) {
 	}
 }
 
+func TestBuildMergePositionsTxDefaultsCollateralToken(t *testing.T) {
+	client := NewClient("", WithChainID(PolygonChainID))
+	contracts, err := Contracts(PolygonChainID)
+	if err != nil {
+		t.Fatalf("Contracts: %v", err)
+	}
+
+	req := validMergePositionsRequest()
+	req.CollateralToken = common.Address{}
+
+	var tx CTFTransaction
+	if err := client.BuildMergePositionsTx(req, &tx); err != nil {
+		t.Fatalf("BuildMergePositionsTx: %v", err)
+	}
+
+	assertAddressEqualCTF(t, "to", contracts.CTFCollateralAdapter, tx.To)
+
+	values, err := ctfABI.Methods["mergePositions"].Inputs.Unpack(tx.Data[4:])
+	if err != nil {
+		t.Fatalf("unpack mergePositions calldata: %v", err)
+	}
+	assertAddressEqualCTF(t, "default collateral", contracts.Collateral, values[0].(common.Address))
+}
+
 func TestBuildRedeemPositionsTxRejectsInvalidInputs(t *testing.T) {
 	client := NewClient("", WithChainID(PolygonChainID))
 
@@ -200,16 +228,6 @@ func TestBuildRedeemPositionsTxRejectsInvalidInputs(t *testing.T) {
 			req:  validRedeemPositionsRequest(),
 			out:  nil,
 			want: "nil CTF transaction output",
-		},
-		{
-			name: "missing collateral",
-			req: func() *RedeemPositionsRequest {
-				req := validRedeemPositionsRequest()
-				req.CollateralToken = common.Address{}
-				return req
-			}(),
-			out:  &CTFTransaction{},
-			want: "collateral token is required",
 		},
 		{
 			name: "missing condition id",
@@ -251,6 +269,30 @@ func TestBuildRedeemPositionsTxRejectsInvalidInputs(t *testing.T) {
 	}
 }
 
+func TestBuildRedeemPositionsTxDefaultsCollateralToken(t *testing.T) {
+	client := NewClient("", WithChainID(PolygonChainID))
+	contracts, err := Contracts(PolygonChainID)
+	if err != nil {
+		t.Fatalf("Contracts: %v", err)
+	}
+
+	req := validRedeemPositionsRequest()
+	req.CollateralToken = common.Address{}
+
+	var tx CTFTransaction
+	if err := client.BuildRedeemPositionsTx(req, &tx); err != nil {
+		t.Fatalf("BuildRedeemPositionsTx: %v", err)
+	}
+
+	assertAddressEqualCTF(t, "to", contracts.CTFCollateralAdapter, tx.To)
+
+	values, err := ctfABI.Methods["redeemPositions"].Inputs.Unpack(tx.Data[4:])
+	if err != nil {
+		t.Fatalf("unpack redeemPositions calldata: %v", err)
+	}
+	assertAddressEqualCTF(t, "default collateral", contracts.Collateral, values[0].(common.Address))
+}
+
 func TestBuildRedeemNegRiskTxRejectsInvalidInputs(t *testing.T) {
 	client := NewClient("", WithChainID(PolygonChainID))
 
@@ -282,36 +324,6 @@ func TestBuildRedeemNegRiskTxRejectsInvalidInputs(t *testing.T) {
 			out:  &CTFTransaction{},
 			want: "condition id is required",
 		},
-		{
-			name: "missing amounts",
-			req: func() *RedeemNegRiskRequest {
-				req := validRedeemNegRiskRequest()
-				req.Amounts = nil
-				return req
-			}(),
-			out:  &CTFTransaction{},
-			want: "amounts is required",
-		},
-		{
-			name: "nil amount",
-			req: func() *RedeemNegRiskRequest {
-				req := validRedeemNegRiskRequest()
-				req.Amounts = []*big.Int{big.NewInt(1), nil}
-				return req
-			}(),
-			out:  &CTFTransaction{},
-			want: "amounts[1] is required",
-		},
-		{
-			name: "zero amount",
-			req: func() *RedeemNegRiskRequest {
-				req := validRedeemNegRiskRequest()
-				req.Amounts = []*big.Int{big.NewInt(1), big.NewInt(0)}
-				return req
-			}(),
-			out:  &CTFTransaction{},
-			want: "amounts[1] must be positive",
-		},
 	}
 
 	for _, tt := range tests {
@@ -320,6 +332,32 @@ func TestBuildRedeemNegRiskTxRejectsInvalidInputs(t *testing.T) {
 			assertErrorContains(t, err, tt.want)
 		})
 	}
+}
+
+func TestBuildRedeemNegRiskTxUsesNegRiskCTFCollateralAdapter(t *testing.T) {
+	client := NewClient("", WithChainID(PolygonChainID))
+	contracts, err := Contracts(PolygonChainID)
+	if err != nil {
+		t.Fatalf("Contracts: %v", err)
+	}
+
+	var tx CTFTransaction
+	if err := client.BuildRedeemNegRiskTx(validRedeemNegRiskRequest(), &tx); err != nil {
+		t.Fatalf("BuildRedeemNegRiskTx: %v", err)
+	}
+
+	assertAddressEqualCTF(t, "to", contracts.NegRiskCTFCollateralAdapter, tx.To)
+	assertMethodSelectorCTF(t, "redeemPositions", ctfABI.Methods["redeemPositions"].ID, tx.Data)
+
+	values, err := ctfABI.Methods["redeemPositions"].Inputs.Unpack(tx.Data[4:])
+	if err != nil {
+		t.Fatalf("unpack neg-risk adapter redeemPositions calldata: %v", err)
+	}
+
+	assertAddressEqualCTF(t, "ignored collateral token", common.Address{}, values[0].(common.Address))
+	assertHashEqualCTF(t, "ignored parent collection", common.Hash{}, values[1].([32]byte))
+	assertHashEqualCTF(t, "condition id", ctfSafetyConditionID, values[2].([32]byte))
+	assertBigIntSliceEqualCTF(t, "index sets placeholder", BinaryPartition(), values[3].([]*big.Int))
 }
 
 func validSplitPositionRequest() *SplitPositionRequest {
@@ -354,10 +392,6 @@ func validRedeemPositionsRequest() *RedeemPositionsRequest {
 func validRedeemNegRiskRequest() *RedeemNegRiskRequest {
 	return &RedeemNegRiskRequest{
 		ConditionID: ctfSafetyConditionID,
-		Amounts: []*big.Int{
-			big.NewInt(1_000_000),
-			big.NewInt(2_000_000),
-		},
 	}
 }
 

@@ -11,6 +11,8 @@ const (
 	V2Host      = "https://clob-v2.polymarket.com"
 	AmoyHost    = "https://clob-v2.polymarket.com"
 
+	// PolygonChainID is Polygon mainnet, the only chain currently listed by
+	// Polymarket's official contract-address documentation.
 	PolygonChainID = 137
 	AmoyChainID    = 80002
 

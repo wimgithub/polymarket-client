@@ -15,6 +15,7 @@ import (
 
 	"github.com/bububa/polymarket-client/internal/polyauth"
 	"github.com/bububa/polymarket-client/relayer"
+	"github.com/ethereum/go-ethereum/common"
 )
 
 var errMissingIdentifier = errors.New("polymarket: missing identifier on output value")
@@ -811,6 +812,25 @@ func (c *Client) ResolveSignatureType(signatureType *SignatureType) SignatureTyp
 		return *c.defaultSignatureType
 	}
 	return SignatureTypeEOA
+}
+
+func (c *Client) defaultCollateralToken() (common.Address, error) {
+	return c.contractAddress(func(cc ContractConfig) common.Address { return cc.Collateral })
+}
+
+func (c *Client) NormalizeCollateralToken(collateral common.Address) (common.Address, error) {
+	if collateral != (common.Address{}) {
+		return collateral, nil
+	}
+
+	defaultCollateral, err := c.defaultCollateralToken()
+	if err != nil {
+		return common.Address{}, err
+	}
+	if defaultCollateral == (common.Address{}) {
+		return common.Address{}, fmt.Errorf("polymarket: collateral token is not configured for chain %d", c.auth.ChainID)
+	}
+	return defaultCollateral, nil
 }
 
 func values(v any) url.Values {

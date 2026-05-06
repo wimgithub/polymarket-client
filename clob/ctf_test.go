@@ -22,7 +22,7 @@ func TestBuildSplitPositionTx(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	client := NewClient("")
+	client := NewClient("", WithChainID(PolygonChainID))
 	var tx CTFTransaction
 
 	req := SplitBinary(
@@ -34,8 +34,8 @@ func TestBuildSplitPositionTx(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if tx.To != contracts.ConditionalTokens {
-		t.Fatalf("to = %s, want %s", tx.To, contracts.ConditionalTokens)
+	if tx.To != contracts.CTFCollateralAdapter {
+		t.Fatalf("to = %s, want %s", tx.To, contracts.CTFCollateralAdapter)
 	}
 	if len(tx.Data) < 4 {
 		t.Fatalf("calldata too short: %d", len(tx.Data))

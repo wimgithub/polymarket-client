@@ -26,9 +26,12 @@ func (c *Client) BuildSplitPositionTx(req *SplitPositionRequest, out *CTFTransac
 	if err := validateCTFTransactionOutput(out); err != nil {
 		return err
 	}
-	if err := validateAddressRequired("collateral token", req.CollateralToken); err != nil {
+
+	collateralToken, err := c.NormalizeCollateralToken(req.CollateralToken)
+	if err != nil {
 		return err
 	}
+
 	if err := validateHashRequired("condition id", req.ConditionID); err != nil {
 		return err
 	}
@@ -38,11 +41,12 @@ func (c *Client) BuildSplitPositionTx(req *SplitPositionRequest, out *CTFTransac
 	if err := validateBigIntRequired("amount", req.Amount); err != nil {
 		return err
 	}
-	data, err := ctfABI.Pack("splitPosition", req.CollateralToken, req.ParentCollectionID, req.ConditionID, req.Partition, req.Amount)
+
+	data, err := ctfABI.Pack("splitPosition", collateralToken, req.ParentCollectionID, req.ConditionID, req.Partition, req.Amount)
 	if err != nil {
 		return fmt.Errorf("ctf: pack splitPosition: %w", err)
 	}
-	to, err := c.contractAddress(func(cc ContractConfig) common.Address { return cc.ConditionalTokens })
+	to, err := c.contractAddress(func(cc ContractConfig) common.Address { return cc.CTFCollateralAdapter })
 	if err != nil {
 		return err
 	}
@@ -58,9 +62,12 @@ func (c *Client) BuildMergePositionsTx(req *MergePositionsRequest, out *CTFTrans
 	if err := validateCTFTransactionOutput(out); err != nil {
 		return err
 	}
-	if err := validateAddressRequired("collateral token", req.CollateralToken); err != nil {
+
+	collateralToken, err := c.NormalizeCollateralToken(req.CollateralToken)
+	if err != nil {
 		return err
 	}
+
 	if err := validateHashRequired("condition id", req.ConditionID); err != nil {
 		return err
 	}
@@ -70,11 +77,12 @@ func (c *Client) BuildMergePositionsTx(req *MergePositionsRequest, out *CTFTrans
 	if err := validateBigIntRequired("amount", req.Amount); err != nil {
 		return err
 	}
-	data, err := ctfABI.Pack("mergePositions", req.CollateralToken, req.ParentCollectionID, req.ConditionID, req.Partition, req.Amount)
+
+	data, err := ctfABI.Pack("mergePositions", collateralToken, req.ParentCollectionID, req.ConditionID, req.Partition, req.Amount)
 	if err != nil {
 		return fmt.Errorf("ctf: pack mergePositions: %w", err)
 	}
-	to, err := c.contractAddress(func(cc ContractConfig) common.Address { return cc.ConditionalTokens })
+	to, err := c.contractAddress(func(cc ContractConfig) common.Address { return cc.CTFCollateralAdapter })
 	if err != nil {
 		return err
 	}
@@ -90,20 +98,24 @@ func (c *Client) BuildRedeemPositionsTx(req *RedeemPositionsRequest, out *CTFTra
 	if err := validateCTFTransactionOutput(out); err != nil {
 		return err
 	}
-	if err := validateAddressRequired("collateral token", req.CollateralToken); err != nil {
+
+	collateralToken, err := c.NormalizeCollateralToken(req.CollateralToken)
+	if err != nil {
 		return err
 	}
+
 	if err := validateHashRequired("condition id", req.ConditionID); err != nil {
 		return err
 	}
 	if err := validateBigIntSliceRequired("index sets", req.IndexSets); err != nil {
 		return err
 	}
-	data, err := ctfABI.Pack("redeemPositions", req.CollateralToken, req.ParentCollectionID, req.ConditionID, req.IndexSets)
+
+	data, err := ctfABI.Pack("redeemPositions", collateralToken, req.ParentCollectionID, req.ConditionID, req.IndexSets)
 	if err != nil {
 		return fmt.Errorf("ctf: pack redeemPositions: %w", err)
 	}
-	to, err := c.contractAddress(func(cc ContractConfig) common.Address { return cc.ConditionalTokens })
+	to, err := c.contractAddress(func(cc ContractConfig) common.Address { return cc.CTFCollateralAdapter })
 	if err != nil {
 		return err
 	}
@@ -111,7 +123,11 @@ func (c *Client) BuildRedeemPositionsTx(req *RedeemPositionsRequest, out *CTFTra
 	return nil
 }
 
-// BuildRedeemNegRiskTx writes the destination and calldata for neg-risk adapter redemption into out.
+// BuildRedeemNegRiskTx writes the destination and calldata for V2 neg-risk
+// redemption through the NegRiskCTFCollateralAdapter.
+//
+// It uses the CTF-compatible redeemPositions(address,bytes32,bytes32,uint256[])
+// adapter interface. RedeemNegRiskRequest.Amounts is ignored on this V2 path.
 func (c *Client) BuildRedeemNegRiskTx(req *RedeemNegRiskRequest, out *CTFTransaction) error {
 	if req == nil {
 		return errors.New("polymarket: nil neg-risk redeem request")
@@ -122,14 +138,18 @@ func (c *Client) BuildRedeemNegRiskTx(req *RedeemNegRiskRequest, out *CTFTransac
 	if err := validateHashRequired("condition id", req.ConditionID); err != nil {
 		return err
 	}
-	if err := validateBigIntSliceRequired("amounts", req.Amounts); err != nil {
-		return err
-	}
-	data, err := negRiskABI.Pack("redeemPositions", req.ConditionID, req.Amounts)
+
+	data, err := ctfABI.Pack(
+		"redeemPositions",
+		common.Address{}, // ignored by adapter
+		common.Hash{},    // ignored by adapter
+		req.ConditionID,
+		BinaryPartition(), // signature-required placeholder for adapter interface
+	)
 	if err != nil {
 		return fmt.Errorf("ctf: pack neg-risk redeemPositions: %w", err)
 	}
-	to, err := c.contractAddress(func(cc ContractConfig) common.Address { return cc.NegRiskAdapter })
+	to, err := c.contractAddress(func(cc ContractConfig) common.Address { return cc.NegRiskCTFCollateralAdapter })
 	if err != nil {
 		return err
 	}
@@ -339,13 +359,6 @@ func waitForReceipt(ctx context.Context, ec *ethclient.Client, txHash common.Has
 func validateCTFTransactionOutput(out *CTFTransaction) error {
 	if out == nil {
 		return errors.New("polymarket: nil CTF transaction output")
-	}
-	return nil
-}
-
-func validateAddressRequired(name string, addr common.Address) error {
-	if addr == (common.Address{}) {
-		return fmt.Errorf("polymarket: %s is required", name)
 	}
 	return nil
 }

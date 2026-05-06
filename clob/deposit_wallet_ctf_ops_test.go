@@ -32,7 +32,7 @@ func TestSplitPositionWithDepositWalletSubmitsSplitTx(t *testing.T) {
 	}
 
 	assertDepositWalletCTFOpSubmitted(t, out, mock)
-	assertDepositWalletBatchSubmitRequest(t, *mock.submitted, signer.Address().Hex(), "7", ctfSafetyConditionalTokens.Hex())
+	assertDepositWalletBatchSubmitRequest(t, *mock.submitted, signer.Address().Hex(), "7", ctfSafetyCTFCollateralAdapter.Hex())
 	assertDepositWalletCallSelector(t, *mock.submitted, ctfABI.Methods["splitPosition"].ID)
 }
 
@@ -57,7 +57,7 @@ func TestMergePositionsWithDepositWalletSubmitsMergeTx(t *testing.T) {
 	}
 
 	assertDepositWalletCTFOpSubmitted(t, out, mock)
-	assertDepositWalletBatchSubmitRequest(t, *mock.submitted, signer.Address().Hex(), "7", ctfSafetyConditionalTokens.Hex())
+	assertDepositWalletBatchSubmitRequest(t, *mock.submitted, signer.Address().Hex(), "7", ctfSafetyCTFCollateralAdapter.Hex())
 	assertDepositWalletCallSelector(t, *mock.submitted, ctfABI.Methods["mergePositions"].ID)
 }
 
@@ -81,7 +81,7 @@ func TestRedeemPositionsWithDepositWalletSubmitsRedeemTx(t *testing.T) {
 	}
 
 	assertDepositWalletCTFOpSubmitted(t, out, mock)
-	assertDepositWalletBatchSubmitRequest(t, *mock.submitted, signer.Address().Hex(), "7", ctfSafetyConditionalTokens.Hex())
+	assertDepositWalletBatchSubmitRequest(t, *mock.submitted, signer.Address().Hex(), "7", ctfSafetyCTFCollateralAdapter.Hex())
 	assertDepositWalletCallSelector(t, *mock.submitted, ctfABI.Methods["redeemPositions"].ID)
 }
 
@@ -93,10 +93,6 @@ func TestRedeemNegRiskWithDepositWalletSubmitsNegRiskRedeemTx(t *testing.T) {
 		context.Background(),
 		&RedeemNegRiskRequest{
 			ConditionID: ctfSafetyConditionID,
-			Amounts: []*big.Int{
-				big.NewInt(1_000_000),
-				big.NewInt(2_000_000),
-			},
 		},
 		validDepositWalletCTFArgs(),
 		&out,
@@ -106,8 +102,8 @@ func TestRedeemNegRiskWithDepositWalletSubmitsNegRiskRedeemTx(t *testing.T) {
 	}
 
 	assertDepositWalletCTFOpSubmitted(t, out, mock)
-	assertDepositWalletBatchSubmitRequest(t, *mock.submitted, signer.Address().Hex(), "7", ctfSafetyNegRiskAdapter.Hex())
-	assertDepositWalletCallSelector(t, *mock.submitted, negRiskABI.Methods["redeemPositions"].ID)
+	assertDepositWalletBatchSubmitRequest(t, *mock.submitted, signer.Address().Hex(), "7", ctfSafetyNegRiskCTFCollateralAdapter.Hex())
+	assertDepositWalletCallSelector(t, *mock.submitted, ctfABI.Methods["redeemPositions"].ID)
 }
 
 func TestDepositWalletCTFOpsPropagateBuildErrors(t *testing.T) {
