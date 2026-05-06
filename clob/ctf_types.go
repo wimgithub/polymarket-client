@@ -126,8 +126,10 @@ type RelayerCTFRequest struct {
 	// Signature is the 0x-prefixed Safe or proxy transaction signature.
 	Signature string
 	// SignatureParams are Safe transaction parameters.
-	SignatureParams relayer.SignatureParams
-	// Type is the relayer transaction type, typically SAFE or PROXY.
+	SignatureParams *relayer.SignatureParams
+	// Type selects SAFE or PROXY relayer signing.
+	// Deposit wallet WALLET transactions are intentionally handled by
+	// CTFDepositWalletTransactionRequest instead.
 	Type relayer.NonceType
 	// Metadata is optional caller-provided transaction metadata.
 	Metadata string

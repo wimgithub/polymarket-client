@@ -20,16 +20,19 @@ type ContractConfig struct {
 	ConditionalTokens common.Address
 	// UMAAdapter is the oracle address used when deriving condition IDs from question IDs.
 	UMAAdapter common.Address
+	// DepositWalletFactory is the factory used to deploy deterministic deposit wallets.
+	DepositWalletFactory common.Address
 }
 
 var contractConfigs = map[int64]ContractConfig{
 	PolygonChainID: {
-		Exchange:          common.HexToAddress("0xE111180000d2663C0091e4f400237545B87B996B"),
-		NegRiskExchange:   common.HexToAddress("0xe2222d279d744050d28e00520010520000310F59"),
-		NegRiskAdapter:    common.HexToAddress("0xd91E80cF2E7be2e162c6513ceD06f1dD0dA35296"),
-		Collateral:        common.HexToAddress("0xC011a7E12a19f7B1f670d46F03B03f3342E82DFB"),
-		ConditionalTokens: common.HexToAddress("0x4D97DCd97eC945f40cF65F87097ACe5EA0476045"),
-		UMAAdapter:        common.HexToAddress("0x6A9D222616C90FcA5754cd1333cFD9b7fb6a4F74"),
+		Exchange:             common.HexToAddress("0xE111180000d2663C0091e4f400237545B87B996B"),
+		NegRiskExchange:      common.HexToAddress("0xe2222d279d744050d28e00520010520000310F59"),
+		NegRiskAdapter:       common.HexToAddress("0xd91E80cF2E7be2e162c6513ceD06f1dD0dA35296"),
+		Collateral:           common.HexToAddress("0xC011a7E12a19f7B1f670d46F03B03f3342E82DFB"),
+		ConditionalTokens:    common.HexToAddress("0x4D97DCd97eC945f40cF65F87097ACe5EA0476045"),
+		UMAAdapter:           common.HexToAddress("0x6A9D222616C90FcA5754cd1333cFD9b7fb6a4F74"),
+		DepositWalletFactory: common.HexToAddress("0x00000000000Fb5C9ADea0298D729A0CB3823Cc07"),
 	},
 }
 

@@ -20,3 +20,4 @@ golden:
 	. .venv-golden/bin/activate && $(GOLDEN_RUN_ENV) python scripts/generate_golden_vectors/generate_clob_order_v2.py
 	. .venv-golden/bin/activate && $(GOLDEN_RUN_ENV) python scripts/generate_golden_vectors/generate_relayer_safe.py
 	. .venv-golden/bin/activate && $(GOLDEN_RUN_ENV) python scripts/generate_golden_vectors/generate_relayer_proxy.py
+	. .venv-golden/bin/activate && $(GOLDEN_RUN_ENV) python scripts/generate_golden_vectors/generate_deposit_wallet_order_v2.py

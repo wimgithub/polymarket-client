@@ -157,7 +157,7 @@ func TestSubmitCTFRelayerTransaction_UsesSignedRelayerToAndData(t *testing.T) {
 		Type:        relayer.NonceTypeSafe,
 		Metadata:    "signed-payload",
 		Value:       "0",
-		SignatureParams: relayer.SignatureParams{
+		SignatureParams: &relayer.SignatureParams{
 			GasPrice:       "0",
 			Operation:      "0",
 			SafeTxGas:      "0",
@@ -291,7 +291,7 @@ func TestBuildCTFRelayerRequest_PreservesSignedProxyPayload(t *testing.T) {
 			Type:        relayer.NonceTypeProxy,
 			Metadata:    "proxy-metadata",
 			Value:       "0",
-			SignatureParams: relayer.SignatureParams{
+			SignatureParams: &relayer.SignatureParams{
 				GasPrice:   "0",
 				GasLimit:   "3000000",
 				RelayerFee: "0",
@@ -358,7 +358,7 @@ func TestBuildCTFRelayerRequest_PreservesSignedSafePayload(t *testing.T) {
 			Type:        relayer.NonceTypeSafe,
 			Metadata:    "safe-metadata",
 			Value:       "0",
-			SignatureParams: relayer.SignatureParams{
+			SignatureParams: &relayer.SignatureParams{
 				GasPrice:       "0",
 				Operation:      "0",
 				SafeTxGas:      "0",
@@ -510,6 +510,55 @@ func TestBuildCTFRelayerRequest_NilArgsDoesNotPanic(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "unsupported relayer type") {
 		t.Fatalf("error = %q, want unsupported relayer type", err.Error())
+	}
+}
+
+func TestBuildCTFRelayerRequestRejectsDepositWalletTypes(t *testing.T) {
+	signer, err := ParsePrivateKey(ctfSafetyTestPrivateKey)
+	if err != nil {
+		t.Fatalf("ParsePrivateKey: %v", err)
+	}
+
+	client := NewClient(
+		"",
+		WithSigner(signer),
+		WithChainID(PolygonChainID),
+		WithRelayerSubmitter(&captureCTFRelayer{}),
+	)
+
+	tx := &CTFTransaction{
+		To:   common.HexToAddress("0x00000000000000000000000000000000000000aa"),
+		Data: []byte{0x01},
+	}
+
+	tests := []struct {
+		name string
+		typ  relayer.NonceType
+	}{
+		{
+			name: "wallet",
+			typ:  relayer.NonceTypeWallet,
+		},
+		{
+			name: "wallet create",
+			typ:  relayer.NonceTypeWalletCreate,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var out RelayerCTFRequest
+			err := client.BuildCTFRelayerRequest(context.Background(), tx, &CTFRelayerArgs{
+				Type:        tt.typ,
+				ProxyWallet: "0x0000000000000000000000000000000000000002",
+			}, &out)
+			if err == nil {
+				t.Fatal("expected error")
+			}
+			if !strings.Contains(err.Error(), "deposit wallet CTF transactions require CTFDepositWalletTransactionRequest") {
+				t.Fatalf("error = %q", err.Error())
+			}
+		})
 	}
 }
 

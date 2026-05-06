@@ -111,8 +111,8 @@ func EncodeProxyTransactionData(txs []ProxyTransaction) (string, error) {
 	return hexutil.Encode(encoded), nil
 }
 
-// BuildProxySubmitTransactionRequest builds and signs a PROXY relayer submit request.
-func (c *Client) BuildProxySubmitTransactionRequest(
+// ProxySubmitTransactionRequest builds and signs a PROXY relayer submit request.
+func (c *Client) ProxySubmitTransactionRequest(
 	ctx context.Context,
 	signer *polyauth.Signer,
 	req *ProxySubmitTransactionArgs,
@@ -206,7 +206,7 @@ func (c *Client) BuildProxySubmitTransactionRequest(
 		Data:        data,
 		Nonce:       relayPayload.Nonce.String(),
 		Signature:   signature,
-		SignatureParams: SignatureParams{
+		SignatureParams: &SignatureParams{
 			GasPrice:   gasPrice,
 			GasLimit:   gasLimit,
 			RelayerFee: relayerFee,

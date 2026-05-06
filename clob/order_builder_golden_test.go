@@ -281,6 +281,11 @@ func loadGoldenVectors(t *testing.T) []goldenVector {
 		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".json") {
 			continue
 		}
+		// Deposit-wallet POLY_1271 vectors have a different schema and are tested
+		// by deposit_wallet_signing_test.go.
+		if entry.Name() == "clob_order_v2_deposit_wallet.json" {
+			continue
+		}
 
 		path := filepath.Join(dir, entry.Name())
 		data, err := os.ReadFile(path)

@@ -35,6 +35,10 @@ type RelayerSubmitter interface {
 	SubmitTransaction(context.Context, *relayer.SubmitTransactionRequest, *relayer.SubmitTransactionResponse) error
 }
 
+type RelayerNonceGetter interface {
+	GetNonce(context.Context, *relayer.NonceResponse, ...relayer.NonceType) error
+}
+
 type ProxyRelayerBuilder interface {
 	ProxySubmitTransactionRequest(
 		context.Context,
@@ -482,6 +486,16 @@ func (c *Client) GetBalanceAllowance(ctx context.Context, params BalanceAllowanc
 // UpdateBalanceAllowance updates the user's approved token allowance for trading.
 // Requires L2 auth.
 func (c *Client) UpdateBalanceAllowance(ctx context.Context, params BalanceAllowanceParams, out *BalanceAllowanceResponse) error {
+	if params.AssetType == "" {
+		return fmt.Errorf("polymarket: asset_type is required")
+	}
+	if params.AssetType != AssetCollateral && params.AssetType != AssetConditional {
+		return fmt.Errorf("polymarket: unsupported asset_type %q", params.AssetType)
+	}
+	if params.AssetType == AssetConditional && strings.TrimSpace(params.TokenID) == "" {
+		return fmt.Errorf("polymarket: token_id is required for CONDITIONAL balance allowance update")
+	}
+
 	return c.do(ctx, http.MethodPost, "/balance-allowance/update", nil, params, 2, out)
 }
 
