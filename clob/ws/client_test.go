@@ -141,6 +141,28 @@ func TestDecodeMarketResolvedAcceptsAssetIDsVariant(t *testing.T) {
 	}
 }
 
+func TestDecodeOrderUsesDocumentedIDField(t *testing.T) {
+	event, err := DecodeEvent([]byte(`{"event_type":"order","id":"order-1","asset_id":"asset-1","market":"0xabc","price":"0.42","size":"10","side":"BUY","status":"LIVE"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := event.(*OrderEvent)
+	if got.OrderID != "order-1" {
+		t.Fatalf("OrderID = %q, want order-1", got.OrderID)
+	}
+}
+
+func TestDecodeOrderAcceptsOrderIDCompat(t *testing.T) {
+	event, err := DecodeEvent([]byte(`{"event_type":"order","order_id":"order-1","asset_id":"asset-1","market":"0xabc","price":"0.42","size":"10","side":"BUY","status":"LIVE"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := event.(*OrderEvent)
+	if got.OrderID != "order-1" {
+		t.Fatalf("OrderID = %q, want order-1", got.OrderID)
+	}
+}
+
 func TestDecodePriceChangeBatch(t *testing.T) {
 	events := decodeEvents([]byte(`{
 		"event_type": "price_change",
