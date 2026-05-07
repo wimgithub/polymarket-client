@@ -17,8 +17,9 @@ import (
 )
 
 const (
-	proxyFactoryPolygon = "0xaB45c5A4B0c941a2F231C04C3f49182e1A254052"
-	relayHubPolygon     = "0xD216153c06E857cD7f72665E0aF1d7D82172F494"
+	proxyFactoryPolygon            = "0xaB45c5A4B0c941a2F231C04C3f49182e1A254052"
+	relayHubPolygon                = "0xD216153c06E857cD7f72665E0aF1d7D82172F494"
+	proxySubmitTransactionSelector = "0x34ee9791"
 )
 
 const (
@@ -108,7 +109,7 @@ func EncodeProxyTransactionData(txs []ProxyTransaction) (string, error) {
 		return "", fmt.Errorf("relayer: encode proxy transaction data: %w", err)
 	}
 	encodedData := hexutil.Encode(encoded)
-	encodedData = "0x34ee9791" + encodedData[2:]
+	encodedData = proxySubmitTransactionSelector + encodedData[2:]
 	return encodedData, nil
 }
 
