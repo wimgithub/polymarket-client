@@ -1,6 +1,8 @@
 package ws
 
 import (
+	"time"
+
 	"github.com/bububa/polymarket-client/clob"
 	"github.com/coder/websocket"
 )
@@ -29,6 +31,14 @@ func WithCredentials(cred *clob.Credentials) Option {
 func WithAutoReconnect(v bool) Option {
 	return func(clt *Client) {
 		clt.autoReconnect = v
+	}
+}
+
+// WithKeepAliveInterval sets the text PING interval for Market/User channels.
+// Set interval <= 0 to disable keepalive.
+func WithKeepAliveInterval(interval time.Duration) Option {
+	return func(clt *Client) {
+		clt.keepAlive = interval
 	}
 }
 
