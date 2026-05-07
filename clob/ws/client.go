@@ -19,6 +19,8 @@ import (
 const (
 	// DefaultHost is the production CLOB WebSocket host.
 	DefaultHost = "wss://ws-subscriptions-clob.polymarket.com"
+	// DefaultKeepAliveInterval is the documented Market/User channel heartbeat interval.
+	DefaultKeepAliveInterval = 10 * time.Second
 )
 
 type Callback func()
@@ -39,6 +41,7 @@ type Client struct {
 	events        chan Event
 	errs          chan error
 	autoReconnect bool
+	keepAlive     time.Duration
 	reconnecting  *atomic.Bool
 
 	onConnected    Callback
@@ -74,6 +77,7 @@ func New(opts ...Option) *Client {
 		events:        make(chan Event, 256),
 		errs:          make(chan error, 16),
 		autoReconnect: true,
+		keepAlive:     DefaultKeepAliveInterval,
 
 		url:          atomic.NewString(""),
 		conn:         atomic.NewPointer[websocket.Conn](nil),
@@ -140,6 +144,7 @@ func (c *Client) connect(ctx context.Context, url string) error {
 	}
 
 	go c.readLoop(c.ctx, conn)
+	go c.keepAliveLoop(c.ctx, conn)
 	c.replaySubscriptions(ctx)
 	return nil
 }
@@ -373,6 +378,33 @@ func (c *Client) readLoop(ctx context.Context, conn *websocket.Conn) {
 			select {
 			case c.events <- event.event:
 			case <-c.ctx.Done():
+				return
+			}
+		}
+	}
+}
+
+func (c *Client) keepAliveLoop(ctx context.Context, conn *websocket.Conn) {
+	if c.keepAlive <= 0 {
+		return
+	}
+	ticker := time.NewTicker(c.keepAlive)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			if c.conn.Load() != conn {
+				return
+			}
+			writeCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+			err := conn.Write(writeCtx, websocket.MessageText, []byte("PING"))
+			cancel()
+			if err != nil {
+				if c.ctx.Err() == nil && websocket.CloseStatus(err) == -1 {
+					c.sendErr(fmt.Errorf("polymarket: websocket keepalive: %w", err))
+				}
 				return
 			}
 		}
