@@ -41,10 +41,36 @@ func WithAutoReconnect(v bool) Option {
 }
 
 // WithHeartbeatInterval sets the text PING interval for Market/User channels.
-// Set interval <= 0 to disable heartbeat.
+// Set interval <= 0 to disable heartbeat. Sports uses server ping -> client pong
+// by default; use WithSportsHeartbeatInterval to opt into active client PINGs.
 func WithHeartbeatInterval(interval time.Duration) Option {
 	return func(clt *Client) {
-		clt.heartbeatInterval = interval
+		clt.marketHeartbeatInterval = interval
+		clt.userHeartbeatInterval = interval
+	}
+}
+
+// WithMarketHeartbeatInterval sets the active text PING interval for the market channel.
+// Set interval <= 0 to disable active client heartbeat.
+func WithMarketHeartbeatInterval(interval time.Duration) Option {
+	return func(clt *Client) {
+		clt.marketHeartbeatInterval = interval
+	}
+}
+
+// WithUserHeartbeatInterval sets the active text PING interval for the user channel.
+// Set interval <= 0 to disable active client heartbeat.
+func WithUserHeartbeatInterval(interval time.Duration) Option {
+	return func(clt *Client) {
+		clt.userHeartbeatInterval = interval
+	}
+}
+
+// WithSportsHeartbeatInterval sets the active text PING interval for the sports channel.
+// Sports normally uses server ping -> client pong, so the default is disabled.
+func WithSportsHeartbeatInterval(interval time.Duration) Option {
+	return func(clt *Client) {
+		clt.sportsHeartbeatInterval = interval
 	}
 }
 

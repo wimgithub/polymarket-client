@@ -35,16 +35,18 @@ type Client struct {
 	dialOpts *websocket.DialOptions
 	creds    *clob.Credentials
 
-	conn              *atomic.Pointer[websocket.Conn]
-	closed            *atomic.Bool
-	connected         *atomic.Bool
-	ctx               context.Context
-	cancel            context.CancelFunc
-	events            chan Event
-	errs              chan error
-	autoReconnect     bool
-	heartbeatInterval time.Duration
-	reconnecting      *atomic.Bool
+	conn                    *atomic.Pointer[websocket.Conn]
+	closed                  *atomic.Bool
+	connected               *atomic.Bool
+	ctx                     context.Context
+	cancel                  context.CancelFunc
+	events                  chan Event
+	errs                    chan error
+	autoReconnect           bool
+	marketHeartbeatInterval time.Duration
+	userHeartbeatInterval   time.Duration
+	sportsHeartbeatInterval time.Duration
+	reconnecting            *atomic.Bool
 
 	onConnected    Callback
 	onReconnected  Callback
@@ -73,14 +75,16 @@ type subscription struct {
 func New(opts ...Option) *Client {
 	ctx, cancel := context.WithCancel(context.Background())
 	clt := &Client{
-		host:              DefaultHost,
-		sportsHost:        DefaultSportsHost,
-		ctx:               ctx,
-		cancel:            cancel,
-		events:            make(chan Event, 256),
-		errs:              make(chan error, 16),
-		autoReconnect:     true,
-		heartbeatInterval: DefaultHeartbeatInterval,
+		host:                    DefaultHost,
+		sportsHost:              DefaultSportsHost,
+		ctx:                     ctx,
+		cancel:                  cancel,
+		events:                  make(chan Event, 256),
+		errs:                    make(chan error, 16),
+		autoReconnect:           true,
+		marketHeartbeatInterval: DefaultHeartbeatInterval,
+		userHeartbeatInterval:   DefaultHeartbeatInterval,
+		sportsHeartbeatInterval: 0,
 
 		url:          atomic.NewString(""),
 		conn:         atomic.NewPointer[websocket.Conn](nil),
@@ -108,20 +112,33 @@ func (c *Client) SportsURL() string { return c.sportsHost + "/ws" }
 
 // ConnectMarket opens the market-channel WebSocket.
 func (c *Client) ConnectMarket(ctx context.Context) error {
-	return c.connect(ctx, c.MarketURL())
+	return c.connect(ctx, c.MarketURL(), c.marketHeartbeatInterval)
 }
 
 // ConnectUser opens the authenticated user-channel WebSocket.
 func (c *Client) ConnectUser(ctx context.Context) error {
-	return c.connect(ctx, c.UserURL())
+	return c.connect(ctx, c.UserURL(), c.userHeartbeatInterval)
 }
 
 // ConnectSports opens the public sports-channel WebSocket.
 func (c *Client) ConnectSports(ctx context.Context) error {
-	return c.connect(ctx, c.SportsURL())
+	return c.connect(ctx, c.SportsURL(), c.sportsHeartbeatInterval)
 }
 
-func (c *Client) connect(ctx context.Context, url string) error {
+func (c *Client) heartbeatIntervalForURL(url string) time.Duration {
+	switch url {
+	case c.MarketURL():
+		return c.marketHeartbeatInterval
+	case c.UserURL():
+		return c.userHeartbeatInterval
+	case c.SportsURL():
+		return c.sportsHeartbeatInterval
+	default:
+		return 0
+	}
+}
+
+func (c *Client) connect(ctx context.Context, url string, heartbeatInterval time.Duration) error {
 	if c.closed.Load() {
 		return errors.New("polymarket: websocket client is closed")
 	}
@@ -147,8 +164,8 @@ func (c *Client) connect(ctx context.Context, url string) error {
 	}
 
 	go c.readLoop(c.ctx, conn)
-	if c.heartbeatInterval > 0 {
-		go c.heartbeat(c.ctx, conn)
+	if heartbeatInterval > 0 {
+		go c.heartbeat(c.ctx, conn, heartbeatInterval)
 	}
 	c.replaySubscriptions(ctx)
 	return nil
@@ -402,11 +419,11 @@ func (c *Client) readLoop(ctx context.Context, conn *websocket.Conn) {
 	}
 }
 
-func (c *Client) heartbeat(ctx context.Context, conn *websocket.Conn) {
-	if c.heartbeatInterval <= 0 {
+func (c *Client) heartbeat(ctx context.Context, conn *websocket.Conn, interval time.Duration) {
+	if interval <= 0 {
 		return
 	}
-	ticker := time.NewTicker(c.heartbeatInterval)
+	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 	for {
 		select {
@@ -461,7 +478,8 @@ func (c *Client) scheduleReconnect(conn *websocket.Conn) {
 			case <-time.After(backoff):
 			}
 			dialCtx, cancel := context.WithTimeout(c.ctx, 15*time.Second)
-			err := c.connect(dialCtx, c.url.Load())
+			url := c.url.Load()
+			err := c.connect(dialCtx, url, c.heartbeatIntervalForURL(url))
 			cancel()
 			if err == nil {
 				return
