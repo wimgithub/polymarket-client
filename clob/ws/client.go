@@ -112,17 +112,17 @@ func (c *Client) SportsURL() string { return c.sportsHost + "/ws" }
 
 // ConnectMarket opens the market-channel WebSocket.
 func (c *Client) ConnectMarket(ctx context.Context) error {
-	return c.connect(ctx, c.MarketURL(), c.marketHeartbeatInterval)
+	return c.connect(ctx, c.MarketURL())
 }
 
 // ConnectUser opens the authenticated user-channel WebSocket.
 func (c *Client) ConnectUser(ctx context.Context) error {
-	return c.connect(ctx, c.UserURL(), c.userHeartbeatInterval)
+	return c.connect(ctx, c.UserURL())
 }
 
 // ConnectSports opens the public sports-channel WebSocket.
 func (c *Client) ConnectSports(ctx context.Context) error {
-	return c.connect(ctx, c.SportsURL(), c.sportsHeartbeatInterval)
+	return c.connect(ctx, c.SportsURL())
 }
 
 func (c *Client) heartbeatIntervalForURL(url string) time.Duration {
@@ -138,7 +138,7 @@ func (c *Client) heartbeatIntervalForURL(url string) time.Duration {
 	}
 }
 
-func (c *Client) connect(ctx context.Context, url string, heartbeatInterval time.Duration) error {
+func (c *Client) connect(ctx context.Context, url string) error {
 	if c.closed.Load() {
 		return errors.New("polymarket: websocket client is closed")
 	}
@@ -164,6 +164,7 @@ func (c *Client) connect(ctx context.Context, url string, heartbeatInterval time
 	}
 
 	go c.readLoop(c.ctx, conn)
+	heartbeatInterval := c.heartbeatIntervalForURL(url)
 	if heartbeatInterval > 0 {
 		go c.heartbeat(c.ctx, conn, heartbeatInterval)
 	}
@@ -478,8 +479,7 @@ func (c *Client) scheduleReconnect(conn *websocket.Conn) {
 			case <-time.After(backoff):
 			}
 			dialCtx, cancel := context.WithTimeout(c.ctx, 15*time.Second)
-			url := c.url.Load()
-			err := c.connect(dialCtx, url, c.heartbeatIntervalForURL(url))
+			err := c.connect(dialCtx, c.url.Load())
 			cancel()
 			if err == nil {
 				return
