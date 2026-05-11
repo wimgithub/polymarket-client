@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/bububa/polymarket-client/internal/polyauth"
+	"github.com/bububa/polymarket-client/internal/polyhttp"
 	"github.com/bububa/polymarket-client/relayer"
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -125,7 +126,7 @@ func NewClient(host string, opts ...Option) *Client {
 		host:       strings.TrimRight(host, "/"),
 		geoblock:   "https://polymarket.com",
 		rpcURL:     "https://polygon-rpc.com",
-		httpClient: http.DefaultClient,
+		httpClient: polyhttp.NewDefaultHTTPClient(),
 		userAgent:  "polymarket-client-go/clob",
 		auth:       Auth{ChainID: PolygonChainID},
 	}

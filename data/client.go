@@ -9,7 +9,6 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/bububa/polymarket-client/internal/polyhttp"
 )
@@ -34,7 +33,7 @@ func New(config Config) *Client {
 		config.Host = DefaultHost
 	}
 	if config.HTTPClient == nil {
-		config.HTTPClient = &http.Client{Timeout: 15 * time.Second}
+		config.HTTPClient = polyhttp.NewDefaultHTTPClient()
 	}
 	if config.UserAgent == "" {
 		config.UserAgent = "polymarket-client-go/data"
